@@ -1,5 +1,6 @@
 services:
-  app:
+  eventhub:
+    container_name: eventhub
     build:
       context: .
       dockerfile: Dockerfile
@@ -7,3 +8,13 @@ services:
       - "${APP_PORT}:${APP_PORT}"
     env_file:
       - .env.local
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_HOST}
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    restart: unless-stopped
+    command: redis-server --save "" --appendonly no
