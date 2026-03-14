@@ -14,6 +14,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Сервис для управления жизненным циклом анонимных сессий в Redis.
+ */
 @Service
 @RequiredArgsConstructor
 public class SessionService {
@@ -25,12 +28,21 @@ public class SessionService {
         return "sid:" + sid;
     }
 
+    /**
+     * Проверяет существование сессии в Redis.
+     * @param sid Идентификатор сессии
+     * @return true, если сессия существует, иначе false
+     */
     public boolean exists(String sid) {
         if (sid == null)
             return false;
         return redisTemplate.hasKey(makeKey(sid));
     }
 
+    /**
+     * Создает новую запись сессии в Redis.
+     * @param sid Идентификатор сессии
+     */
     public void createSession(String sid) {
         String key = makeKey(sid);
         String now = Instant.now().toString();
@@ -51,6 +63,10 @@ public class SessionService {
         });
     }
 
+    /**
+     * Обновляет поле {@code updated_at} и продлевает время жизни сессии.
+     * @param sid Идентификатор сессии
+     */
     public void updateSession(String sid) {
         String key = makeKey(sid);
         String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);

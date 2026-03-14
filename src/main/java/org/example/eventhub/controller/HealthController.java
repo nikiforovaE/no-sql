@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * Контроллер для проверки состояния сервиса.
+ */
 @RestController
 public class HealthController {
 
@@ -19,6 +22,12 @@ public class HealthController {
         this.appConfig = appConfig;
     }
 
+    /**
+     * Возвращает статус сервиса. Если сессия существует, возвращает её в Cookie.
+     *
+     * @param sessionId Идентификатор сессии из Cookie
+     * @return ResponseEntity с JSON статусом и заголовком Set-Cookie (если сессия передана)
+     */
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health(
             @CookieValue(name = "X-Session-Id", required = false) String sessionId

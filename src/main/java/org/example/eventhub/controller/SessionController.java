@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import org.example.eventhub.config.AppConfig;
 
+/**
+ * Контроллер для обработки запросов управления сессиями.
+ */
 @RestController
 @RequiredArgsConstructor
 public class SessionController {
@@ -21,6 +24,12 @@ public class SessionController {
     private final SessionIdGenerator sidGenerator;
     private final AppConfig appConfig;
 
+    /**
+     * Создает или обновляет сессию пользователя.
+     *
+     * @param sid Текущий идентификатор сессии из Cookie (может быть null)
+     * @return ResponseEntity с HTTP 201 при создании или 200 при обновлении
+     */
     @PostMapping("/session")
     public ResponseEntity<Void> session(
             @CookieValue(name = "X-Session-Id", required = false) String sid) {

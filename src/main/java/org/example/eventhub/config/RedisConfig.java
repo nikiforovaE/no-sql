@@ -7,6 +7,9 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+/**
+ * Конфигурация Redis соединения.
+ */
 @Configuration
 public class RedisConfig {
 
