@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${APP_PORT}:${APP_PORT}"
+      - ${APP_PORT}:${APP_PORT}
     env_file:
       - .env.local
     depends_on:
@@ -15,6 +15,20 @@ services:
     image: redis:7-alpine
     container_name: ${REDIS_HOST}
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
+      - ${REDIS_PORT}:${REDIS_PORT}
     restart: unless-stopped
     command: redis-server --save "" --appendonly no
+
+  mongodb:
+    image: mongo:8.0
+    ports:
+      - ${MONGODB_PORT}:${MONGODB_PORT}
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGODB_DATABASE: ${MONGODB_DATABASE}
+      MONGODB_USER: ${MONGODB_USER}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+    volumes:
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
