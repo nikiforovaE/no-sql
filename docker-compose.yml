@@ -10,6 +10,7 @@ services:
       - .env.local
     depends_on:
       - redis
+      - mongodb
 
   redis:
     image: redis:7-alpine
@@ -21,6 +22,7 @@ services:
 
   mongodb:
     image: mongo:8.0
+    container_name: ${MONGODB_HOST}
     ports:
       - ${MONGODB_PORT}:${MONGODB_PORT}
     environment:
