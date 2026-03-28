@@ -1,48 +1,128 @@
 # EventHub - NoSQL Database Project
 
-[![EventHub](https://github.com/{your_username}/{your_repo}/actions/workflows/eventhub.yml/badge.svg)](https://github.com/{your_username}/{your_repo}/actions/workflows/eventhub.yml)
+[![EventHub](https://github.com/nikiforovaE/no-sql/actions/workflows/eventhub.yml/badge.svg)](https://github.com/nikiforovaE/no-sql/actions/workflows/eventhub.yml)
 
-Backend-сервис платформы мероприятий для практического изучения NoSQL баз данных.
+EventHub — backend‑сервис платформы мероприятий, предназначенный для изучения различных подходов к хранению и обработке
+данных с использованием NoSQL баз данных.
 
-## С чего начать
+## 🛠 Технологический стек
 
-1. **‼️ Настройте репозиторий** — проведите обязательную настройку контрибьюторов и защиты ветки (см. ниже)
-2. **[Лабораторные работы](https://github.com/sitnikovik/ndbx/tree/main/docs/lab)** — технические задания для каждой лабораторной работы
-3. **[CONTRIBUTING.md](CONTRIBUTING.md)** — требования к структуре проекта, процесс разработки и проверки
-4. **[Документация курса](https://github.com/sitnikovik/ndbx)** — методические материалы и дополнительные ресурсы
+- **Язык программирования:** Java 21
+- **Фреймворк:** Spring Boot 4.0.3
+- **База данных:** Redis 7
+- **Сборка:** Maven
+- **Оркестрация:** Docker & Docker Compose
 
-> 💡 Не забудьте поменять `{your_username}` и `{your_repo}` в badge на ваши имя пользователя и название репозитория.
+## 🚀 Как запустить проект
 
-## Настройка репозитория
+### Предварительные требования
 
-### Защита основной ветки
+Для локального запуска вам потребуются установленные:
 
-После создания репозитория из шаблона **обязательно настройте правила защиты для ветки `main`**:
+- [Docker](https://docs.docker.com/get-docker/) и Docker Compose
+- Утилита `make`
 
-1. Откройте **Settings** → **Branches** → **Add classic branch protection rule**
-2. В поле **Branch name pattern** укажите: `main`
-3. Включите следующие опции:
-   - **Require a pull request before merging**
-     - Require approvals: **1**: требует минимум одного одобрения перед слиянием
-   - ***Require status checks to pass before merging***
-     - Выберите *"autograder"*: проверит все лабораторные работы автоматически
-     - ***Require branches to be up to date before merging*** (рекомендуется):
-     требует, чтобы ветка PR была синхронизирована с последними изменениями из основной ветки перед слиянием
-   - ***Lock branch***: запрещает прямые коммиты в основную ветку
-   - ***Do not allow bypassing the above settings***: запрещает обход настроек защиты ветки
-4. Нажмите **Create** или **Save changes**
+### 1. Настройка окружения
 
-> ⚠️ **Важно:** Без этих настроек автоматические проверки не будут блокировать PR с ошибками.
+В корне проекта должен находиться конфигурационный файл `.env.local`.
 
-### Добавление коллабораторов
+```env
+APP_HOST=localhost
+APP_PORT=8080
+APP_USER_SESSION_TTL=60
 
-Чтобы преподаватели могли проводить код-ревью:
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+```
 
-1. Откройте **Settings** → **Collaborators**
-2. Нажмите **Add people**
-3. Добавьте всех кто есть в списке ревьюеров в файле [CODEOWNERS](CODEOWNERS)
-4. Выберите роль: **Write** (или выше), иначе ревьюер не сможет одобрить PR
+### 2. Запуск приложения
 
-## Помощь
+В корне проекта выполнить команду:
 
-Возникли вопросы? → [@sitnikovik](https://t.me/sitnikovik)
+```
+make run
+```
+
+*После запуска сервис будет доступен по адресу: `http://localhost:8080`*
+
+### 3. Остановка приложения
+
+Для остановки всех контейнеров выполнить команду:
+
+```bash
+make stop
+```
+
+---
+
+## 📖 API
+
+Проект предоставляет REST API для управления анонимными сессиями. Сессии хранятся в Redis и идентифицируются через
+Cookie `X-Session-Id`.
+
+> 💡 Коллекция запросов Postman находится в папке `api/` в корне репозитория
+
+### 1. Проверка состояния сервиса
+
+`GET /health`
+
+Проверяет работоспособность сервиса. Если клиент передает валидную `X-Session-Id`, она возвращается обратно.
+**Запрос без Cookie (нет сессии):**
+
+```http
+GET /health
+```
+
+**Ответ:**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+{"status":"ok"}
+```
+
+**Запрос с Cookie (сессия уже существует):**
+
+```http
+GET /health
+Cookie: X-Session-Id=a3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d
+```
+
+**Ответ:**
+
+```http
+HTTP/1.1 200 OK
+Set-Cookie: X-Session-Id=a3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d; HttpOnly; Path=/; Max-Age={APP_USER_SESSION_TTL}
+Content-Type: application/json
+{"status":"ok"}
+```
+
+### 2. Создание или обновление сессии
+
+`POST /session`
+
+Создает новую анонимную сессию при первом визите пользователя или обновляет TTL существующей сессии при повторном
+визите.
+**Запрос:**
+
+```http
+POST http://localhost:8080/session
+```
+
+**Ответ при первом визите (создание сессии):**
+
+```http
+HTTP/1.1 201 Created
+Set-Cookie: X-Session-Id=3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d; HttpOnly; Path=/; Max-Age={APP_USER_SESSION_TTL}
+Content-Length: 0
+```
+
+**Ответ при повторном визите (существующая сессия):**
+
+```http
+HTTP/1.1 200 OK
+Set-Cookie: X-Session-Id=3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d; HttpOnly; Path=/; Max-Age={APP_USER_SESSION_TTL}
+Content-Length: 0
+```

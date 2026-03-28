@@ -5,6 +5,25 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и этот проект придерживается [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.2.0] - 2026-03-14
+
+### Добавлено
+
+- Реализация лабораторной 2 (Анонимные сессии на Redis)
+- Новый эндпоинт `POST /session` для создания и продления анонимных сессий
+- Интеграция с Redis для хранения пользовательских сессий в виде хэш-таблиц
+- Добавлена коллекция запросов Postman в папку `api/`
+- Добавлен сервис `redis` в `docker-compose.yml`
+
+### Изменено
+
+- Доработан эндпоинт `GET /health`: добавлена валидация и возврат существующей Cookie `X-Session-Id` без обновления TTL
+  в БД
+- Обновлен `pom.xml`: добавлены зависимости `spring-boot-starter-data-redis`, `spring-boot-configuration-processor`,
+  `lombok`
+- В `.env.local` добавлены настройки подключения к Redis
+
+
 ## [1.1.0] - 2026-02-21
 
 ### Добавлено
