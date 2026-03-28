@@ -32,4 +32,17 @@ public class CookieProvider {
                 .maxAge(appConfig.getUserSessionTtl())
                 .build();
     }
+
+    /**
+     * Создает куку для удаления сессии на стороне клиента (Max-Age=0).
+     *
+     * @return настроенный объект ResponseCookie для удаления
+     */
+    public ResponseCookie deleteSessionCookie() {
+        return ResponseCookie.from("X-Session-Id", "")
+                .httpOnly(true)
+                .path("/")
+                .maxAge(0)
+                .build();
+    }
 }

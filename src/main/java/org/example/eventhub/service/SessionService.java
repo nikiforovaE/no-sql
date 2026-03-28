@@ -30,6 +30,7 @@ public class SessionService {
 
     /**
      * Проверяет существование сессии в Redis.
+     *
      * @param sid Идентификатор сессии
      * @return true, если сессия существует, иначе false
      */
@@ -40,7 +41,8 @@ public class SessionService {
     }
 
     /**
-     * Создает новую запись сессии в Redis.
+     * Создает пустую анонимную сессию
+     *
      * @param sid Идентификатор сессии
      */
     public void createSession(String sid) {
@@ -65,9 +67,12 @@ public class SessionService {
 
     /**
      * Обновляет поле {@code updated_at} и продлевает время жизни сессии.
+     *
      * @param sid Идентификатор сессии
      */
     public void updateSession(String sid) {
+        if (sid == null) return;
+
         String key = makeKey(sid);
         String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         redisTemplate.execute(new SessionCallback<Object>() {
@@ -79,5 +84,50 @@ public class SessionService {
                 return operations.exec();
             }
         });
+    }
+
+    /**
+     * Удаляет сессию из Redis (нужно для Logout).
+     *
+     * @param sid Идентификатор сессии
+     */
+    public void deleteSession(String sid) {
+        if (sid != null) {
+            redisTemplate.delete(makeKey(sid));
+        }
+    }
+
+    /**
+     * Привязывает ID пользователя из MongoDB к сессии в Redis.
+     *
+     * @param sid    Идентификатор сессии
+     * @param userId Идентификатор пользователя
+     */
+    public void linkUser(String sid, String userId) {
+        if (sid == null || userId == null) return;
+
+        String key = makeKey(sid);
+
+        redisTemplate.execute(new SessionCallback<Object>() {
+            @Override
+            public Object execute(RedisOperations operations) throws DataAccessException {
+                operations.multi();
+                operations.opsForHash().put(key, "user_id", userId);
+                operations.opsForHash().put(key, "updated_at", Instant.now().toString());
+                operations.expire(key, appConfig.getUserSessionTtl(), TimeUnit.SECONDS);
+                return operations.exec();
+            }
+        });
+    }
+
+    /**
+     * Получает ID пользователя, привязанного к сессии.
+     *
+     * @param sid Идентификатор сессии
+     * @return ID пользователя, null - если сессия анонимная
+     */
+    public String getUserId(String sid) {
+        if (sid == null) return null;
+        return (String) redisTemplate.opsForHash().get(makeKey(sid), "user_id");
     }
 }
