@@ -30,13 +30,13 @@ public class AuthController {
     ) {
         if (request.getUsername() == null || request.getUsername().isBlank() ||
                 request.getPassword() == null || request.getPassword().isBlank()) {
-            return buildErrorResponse(HttpStatus.UNAUTHORIZED, "invalid credentials", sid);
+            return buildErrorResponse(sid);
         }
 
         Optional<String> activeSid = authService.login(request.getUsername(), request.getPassword(), sid);
 
         if (activeSid.isEmpty()) {
-            return buildErrorResponse(HttpStatus.UNAUTHORIZED, "invalid credentials", sid);
+            return buildErrorResponse(sid);
         }
 
         ResponseCookie cookie = cookieProvider.createSessionCookie(activeSid.get());
@@ -55,12 +55,12 @@ public class AuthController {
                 .build();
     }
 
-    private ResponseEntity<Map<String, String>> buildErrorResponse(HttpStatus status, String message, String sid) {
-        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
+    private ResponseEntity<Map<String, String>> buildErrorResponse(String sid) {
+        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(HttpStatus.UNAUTHORIZED);
         if (sid != null && sessionService.exists(sid)) {
             sessionService.updateSession(sid);
             responseBuilder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
         }
-        return responseBuilder.body(Map.of("message", message));
+        return responseBuilder.body(Map.of("message", "invalid credentials"));
     }
 }

@@ -8,7 +8,6 @@ import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -35,8 +34,7 @@ public class SessionService {
      * @return true, если сессия существует, иначе false
      */
     public boolean exists(String sid) {
-        if (sid == null)
-            return false;
+        if (sid == null) return false;
         return redisTemplate.hasKey(makeKey(sid));
     }
 
@@ -47,12 +45,9 @@ public class SessionService {
      */
     public void createSession(String sid) {
         String key = makeKey(sid);
-        String now = Instant.now().toString();
+        String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
-        Map<String, String> sessionData = Map.of(
-                "created_at", now,
-                "updated_at", now
-        );
+        Map<String, String> sessionData = Map.of("created_at", now, "updated_at", now);
 
         redisTemplate.execute(new SessionCallback<Object>() {
             @Override
@@ -113,7 +108,7 @@ public class SessionService {
             public Object execute(RedisOperations operations) throws DataAccessException {
                 operations.multi();
                 operations.opsForHash().put(key, "user_id", userId);
-                operations.opsForHash().put(key, "updated_at", Instant.now().toString());
+                operations.opsForHash().put(key, "updated_at", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
                 operations.expire(key, appConfig.getUserSessionTtl(), TimeUnit.SECONDS);
                 return operations.exec();
             }
