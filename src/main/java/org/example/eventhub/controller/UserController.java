@@ -1,0 +1,93 @@
+package org.example.eventhub.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.eventhub.dto.UserRegistrationRequest;
+import org.example.eventhub.model.User;
+import org.example.eventhub.service.SessionService;
+import org.example.eventhub.service.UserService;
+import org.example.eventhub.util.CookieProvider;
+import org.example.eventhub.util.SessionIdGenerator;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+/**
+ * Контроллер для управления пользователями (регистрация).
+ */
+@RestController
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+    private final SessionService sessionService;
+    private final SessionIdGenerator sidGenerator;
+    private final CookieProvider cookieProvider;
+
+    /**
+     * Регистрирует нового пользователя в системе.
+     * При успешной регистрации создается новая сессия, которая привязывается к пользователю.
+     *
+     * @param request данные для регистрации (full_name, username, password)
+     * @param sid     текущий идентификатор сессии из куки (если есть)
+     * @return 201 Created при успехе, 400 Bad Request при ошибке валидации, 409 Conflict если пользователь существует
+     */
+    @PostMapping("/users")
+    public ResponseEntity<?> register(
+            @RequestBody UserRegistrationRequest request,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        if (request.getFullName() == null || request.getFullName().isBlank()) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"full_name\" field", sid);
+        }
+        if (request.getUsername() == null || request.getUsername().isBlank()) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"username\" field", sid);
+        }
+        if (request.getPassword() == null || request.getPassword().isBlank()) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"password\" field", sid);
+        }
+
+        if (userService.existsByUsername(request.getUsername())) {
+            return buildErrorResponse(HttpStatus.CONFLICT, "user already exists", sid);
+        }
+
+        User user = userService.createUser(
+                request.getFullName(),
+                request.getUsername(),
+                request.getPassword()
+        );
+
+        String newSid = sidGenerator.generateSid();
+        sessionService.createSession(newSid);
+        sessionService.linkUser(newSid, user.getId());
+
+        ResponseCookie cookie = cookieProvider.createSessionCookie(newSid);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .build();
+    }
+
+    /**
+     * Формирует ответ с ошибкой. Если сессия существует, обновляет её срок жизни.
+     *
+     * @param status  HTTP статус ошибки
+     * @param message текст сообщения об ошибке
+     * @param sid     текущий ID сессии для возможного обновления
+     * @return ResponseEntity с JSON сообщением и (опционально) кукой обновления
+     */
+    private ResponseEntity<Map<String, String>> buildErrorResponse(HttpStatus status, String message, String sid) {
+        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
+
+        if (sid != null && sessionService.exists(sid)) {
+            sessionService.updateSession(sid);
+            ResponseCookie cookie = cookieProvider.createSessionCookie(sid);
+            responseBuilder.header(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
+
+        return responseBuilder.body(Map.of("message", message));
+    }
+}
