@@ -30,13 +30,13 @@ public class AuthController {
     ) {
         if (request.getUsername() == null || request.getUsername().isBlank() ||
                 request.getPassword() == null || request.getPassword().isBlank()) {
-            return buildErrorResponse(sid);
+            return buildErrorResponse(HttpStatus.UNAUTHORIZED, "invalid credentials", sid);
         }
 
         Optional<String> activeSid = authService.login(request.getUsername(), request.getPassword(), sid);
 
         if (activeSid.isEmpty()) {
-            return buildErrorResponse(sid);
+            return buildErrorResponse(HttpStatus.UNAUTHORIZED, "invalid credentials", sid);
         }
 
         ResponseCookie cookie = cookieProvider.createSessionCookie(activeSid.get());
@@ -45,22 +45,30 @@ public class AuthController {
                 .build();
     }
 
+    /**
+     * Выполняет выход. Если пользователь не авторизован (нет user_id в сессии), возвращает 401.
+     */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
+        String userId = sessionService.getUserId(sid);
+
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         authService.logout(sid);
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, cookieProvider.deleteSessionCookie().toString())
                 .build();
     }
 
-    private ResponseEntity<Map<String, String>> buildErrorResponse(String sid) {
-        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(HttpStatus.UNAUTHORIZED);
+    private ResponseEntity<Map<String, String>> buildErrorResponse(HttpStatus status, String message, String sid) {
+        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
         if (sid != null && sessionService.exists(sid)) {
             sessionService.updateSession(sid);
             responseBuilder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
         }
-        return responseBuilder.body(Map.of("message", "invalid credentials"));
+        return responseBuilder.body(Map.of("message", message));
     }
 }
