@@ -1,6 +1,7 @@
 package org.example.eventhub.controller;
 
-import org.example.eventhub.config.AppConfig;
+import lombok.RequiredArgsConstructor;
+import org.example.eventhub.util.CookieProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -14,13 +15,10 @@ import java.util.Map;
  * Контроллер для проверки состояния сервиса.
  */
 @RestController
+@RequiredArgsConstructor
 public class HealthController {
 
-    private final AppConfig appConfig;
-
-    public HealthController(AppConfig appConfig) {
-        this.appConfig = appConfig;
-    }
+    private final CookieProvider cookieProvider;
 
     /**
      * Возвращает статус сервиса. Если сессия существует, возвращает её в Cookie.
@@ -30,7 +28,7 @@ public class HealthController {
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health(
-            @CookieValue(name = "X-Session-Id", required = false) String sessionId
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sessionId
     ) {
         Map<String, String> body = Map.of("status", "ok");
 
@@ -38,11 +36,7 @@ public class HealthController {
             return ResponseEntity.ok(body);
         }
 
-        ResponseCookie cookie = ResponseCookie.from("X-Session-Id", sessionId)
-                .httpOnly(true)
-                .path("/")
-                .maxAge(appConfig.getUserSessionTtl())
-                .build();
+        ResponseCookie cookie = cookieProvider.createSessionCookie(sessionId);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())

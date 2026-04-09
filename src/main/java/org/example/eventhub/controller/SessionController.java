@@ -2,6 +2,7 @@ package org.example.eventhub.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.eventhub.service.SessionService;
+import org.example.eventhub.util.CookieProvider;
 import org.example.eventhub.util.SessionIdGenerator;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ public class SessionController {
 
     private final SessionService sessionService;
     private final SessionIdGenerator sidGenerator;
+    private final CookieProvider cookieProvider;
     private final AppConfig appConfig;
 
     /**
@@ -32,7 +34,7 @@ public class SessionController {
      */
     @PostMapping("/session")
     public ResponseEntity<Void> session(
-            @CookieValue(name = "X-Session-Id", required = false) String sid) {
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
 
         String currentSid = sid;
         HttpStatus status = HttpStatus.OK;
@@ -49,11 +51,7 @@ public class SessionController {
             sessionService.updateSession(currentSid);
         }
 
-        ResponseCookie cookie = ResponseCookie.from("X-Session-Id", currentSid)
-                .httpOnly(true)
-                .path("/")
-                .maxAge(appConfig.getUserSessionTtl())
-                .build();
+        ResponseCookie cookie = cookieProvider.createSessionCookie(currentSid);
 
         return ResponseEntity.status(status)
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())

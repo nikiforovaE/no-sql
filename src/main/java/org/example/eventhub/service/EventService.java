@@ -1,0 +1,55 @@
+package org.example.eventhub.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.eventhub.model.Event;
+import org.example.eventhub.repository.EventRepository;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.stereotype.Service;
+
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+/**
+ * Сервис для управления событиями.
+ */
+@Service
+@RequiredArgsConstructor
+public class EventService {
+
+    private final EventRepository eventRepository;
+    private final MongoTemplate mongoTemplate;
+
+    /**
+     * Проверяет, занято ли название события.
+     */
+    public boolean isTitleBusy(String title) {
+        return eventRepository.existsByTitle(title);
+    }
+
+    /**
+     * Сохраняет событие в MongoDB.
+     */
+    public Event saveEvent(Event event) {
+        event.setCreatedAt(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        return eventRepository.save(event);
+    }
+
+    /**
+     * Ищет события с фильтром по названию и пагинацией.
+     */
+    public List<Event> findEvents(String title, Integer limit, Integer offset) {
+        Query query = new Query();
+
+        if (title != null && !title.isBlank()) {
+            query.addCriteria(Criteria.where("title").regex(title, "i"));
+        }
+
+        if (offset != null) query.skip(offset);
+        if (limit != null) query.limit(limit);
+
+        return mongoTemplate.find(query, Event.class);
+    }
+}

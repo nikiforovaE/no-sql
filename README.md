@@ -2,6 +2,12 @@
 
 [![EventHub](https://github.com/nikiforovaE/no-sql/actions/workflows/eventhub.yml/badge.svg)](https://github.com/nikiforovaE/no-sql/actions/workflows/eventhub.yml)
 
+1. **[Лабораторные работы](https://github.com/sitnikovik/ndbx/tree/main/docs/lab)** — технические задания для каждой лабораторной работы
+
+2. **[CONTRIBUTING.md](CONTRIBUTING.md)** — требования к структуре проекта, процесс разработки и проверки
+
+3. **[Документация курса](https://github.com/sitnikovik/ndbx)** — методические материалы и дополнительные ресурсы
+
 EventHub — backend‑сервис платформы мероприятий, предназначенный для изучения различных подходов к хранению и обработке
 данных с использованием NoSQL баз данных.
 
