@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Контроллер для управления аутентификацией (вход и выход).
+ */
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -23,6 +26,13 @@ public class AuthController {
     private final SessionService sessionService;
     private final CookieProvider cookieProvider;
 
+    /**
+     * Выполняет вход пользователя в систему и привязывает его к сессии.
+     *
+     * @param request данные для входа (username, password)
+     * @param sid     идентификатор текущей сессии из куки
+     * @return 204 No Content и обновленная кука при успехе, иначе 401
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody LoginRequest request,
@@ -46,7 +56,11 @@ public class AuthController {
     }
 
     /**
-     * Выполняет выход. Если пользователь не авторизован (нет user_id в сессии), возвращает 401.
+     * Завершает сессию пользователя.
+     * Если сессия не авторизована, возвращает 401.
+     *
+     * @param sid идентификатор сессии из куки
+     * @return 204 No Content и команда на удаление куки
      */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
@@ -63,6 +77,9 @@ public class AuthController {
                 .build();
     }
 
+    /**
+     * Формирует ответ с ошибкой, поддерживая жизнь текущей сессии.
+     */
     private ResponseEntity<Map<String, String>> buildErrorResponse(HttpStatus status, String message, String sid) {
         ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
         if (sid != null && sessionService.exists(sid)) {

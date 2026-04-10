@@ -23,14 +23,20 @@ public class EventService {
     private final MongoTemplate mongoTemplate;
 
     /**
-     * Проверяет, занято ли название события.
+     * Проверяет, занято ли указанное название события.
+     *
+     * @param title название для проверки
+     * @return true, если название уже существует
      */
     public boolean isTitleBusy(String title) {
         return eventRepository.existsByTitle(title);
     }
 
     /**
-     * Сохраняет событие в MongoDB.
+     * Сохраняет событие, устанавливая текущую дату создания в формате RFC3339.
+     *
+     * @param event объект события
+     * @return сохраненный объект с сгенерированным ID
      */
     public Event saveEvent(Event event) {
         event.setCreatedAt(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
@@ -38,7 +44,12 @@ public class EventService {
     }
 
     /**
-     * Ищет события с фильтром по названию и пагинацией.
+     * Выполняет поиск событий с использованием фильтрации по названию и пагинации.
+     *
+     * @param title  подстрока для поиска в названии
+     * @param limit  максимальное количество результатов
+     * @param offset количество пропускаемых результатов
+     * @return список найденных событий
      */
     public List<Event> findEvents(String title, Integer limit, Integer offset) {
         Query query = new Query();

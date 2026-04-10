@@ -16,8 +16,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Getter
 @Setter
 public class AppConfig {
+    /**
+     * Время жизни сессии пользователя.
+     */
     private Long userSessionTtl;
 
+    /**
+     * Создает и настраивает бин для шифрования паролей.
+     *
+     * @return экземпляр {@link BCryptPasswordEncoder}
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

@@ -29,8 +29,11 @@ public class EventController {
     private final CookieProvider cookieProvider;
 
     /**
-     * Создает новое событие (POST /events).
-     * Доступно только авторизованным пользователям.
+     * Создает новое событие. Доступно только для авторизованных пользователей.
+     *
+     * @param request данные события (название, адрес, даты)
+     * @param sid     идентификатор сессии
+     * @return 201 и ID события, либо ошибка (400, 401, 409)
      */
     @PostMapping
     public ResponseEntity<?> createEvent(
@@ -70,7 +73,12 @@ public class EventController {
     }
 
     /**
-     * Возвращает список событий (GET /events) с фильтрацией и пагинацией.
+     * Возвращает список событий с фильтрацией и пагинацией.
+     *
+     * @param title  подстрока для поиска в названии (LIKE)
+     * @param limit  макс. количество записей
+     * @param offset количество пропускаемых записей
+     * @return объект со списком событий и их общим количеством
      */
     @GetMapping
     public ResponseEntity<?> listEvents(
@@ -122,7 +130,7 @@ public class EventController {
     }
 
     /**
-     * Формирует ответ с ошибкой.
+     * Формирует ответ с ошибкой и обновляет куку для продления сессии.
      */
     private ResponseEntity<?> buildErrorResponse(HttpStatus status, String message, String sid, String errorType) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
