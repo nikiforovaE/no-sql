@@ -3,6 +3,8 @@ package org.example.eventhub.service;
 import lombok.RequiredArgsConstructor;
 import org.example.eventhub.model.User;
 import org.example.eventhub.repository.UserRepository;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +57,7 @@ public class UserService {
     public Optional<User> findById(String id) {
         return userRepository.findById(id);
     }
+
     /**
      * Ищет пользователя по имени.
      *
@@ -69,15 +72,14 @@ public class UserService {
      * Выполняет поиск пользователей по фильтрам.
      */
     public List<User> findUsers(String id, String name, Integer limit, Integer offset) {
-        org.springframework.data.mongodb.core.query.Query query =
-                new org.springframework.data.mongodb.core.query.Query();
+        Query query = new Query();
 
         if (id != null && !id.isBlank()) {
-            query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("_id").is(id));
+            query.addCriteria(Criteria.where("_id").is(id));
         }
 
         if (name != null && !name.isBlank()) {
-            query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("full_name").regex(name, "i"));
+            query.addCriteria(Criteria.where("full_name").regex(name, "i"));
         }
 
         if (offset != null) query.skip(offset);
@@ -85,6 +87,7 @@ public class UserService {
 
         return mongoTemplate.find(query, User.class);
     }
+
     /**
      * Сверяет введенный пароль с хешем из базы данных.
      *

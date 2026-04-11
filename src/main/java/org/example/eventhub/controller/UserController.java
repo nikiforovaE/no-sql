@@ -3,7 +3,9 @@ package org.example.eventhub.controller;
 import lombok.RequiredArgsConstructor;
 import org.example.eventhub.dto.UserListResponse;
 import org.example.eventhub.dto.UserRegistrationRequest;
+import org.example.eventhub.model.Event;
 import org.example.eventhub.model.User;
+import org.example.eventhub.service.EventService;
 import org.example.eventhub.service.SessionService;
 import org.example.eventhub.service.UserService;
 import org.example.eventhub.util.CookieProvider;
@@ -28,6 +30,7 @@ public class UserController {
     private final SessionService sessionService;
     private final SessionIdGenerator sidGenerator;
     private final CookieProvider cookieProvider;
+    private final EventService eventService;
 
     /**
      * Регистрирует нового пользователя в системе.
@@ -153,6 +156,38 @@ public class UserController {
         }
 
         return builder.body(responseBody);
+    }
+
+    /**
+     * Возвращает список всех мероприятий конкретного организатора
+     *
+     * @param userId идентификатор пользователя из пути
+     * @param sid    идентификатор сессии из куки
+     * @return 200 со списком событий или 404, если пользователь не найден
+     */
+    @GetMapping("/users/{id}/events")
+    public ResponseEntity<?> listUserEvents(
+            @PathVariable("id") String userId,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        if (userService.findById(userId).isEmpty()) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "User not found", sid);
+        }
+
+        List<Event> events = eventService.findEventsByCreator(userId);
+
+        org.example.eventhub.dto.EventListResponse response = org.example.eventhub.dto.EventListResponse.builder()
+                .events(events)
+                .count(events.size())
+                .build();
+
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+        if (sid != null && sessionService.exists(sid)) {
+            sessionService.updateSession(sid);
+            builder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
+        }
+
+        return builder.body(response);
     }
 
     /**

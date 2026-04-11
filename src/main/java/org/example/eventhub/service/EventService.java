@@ -65,6 +65,18 @@ public class EventService {
     }
 
     /**
+     * Находит все мероприятия, созданные конкретным пользователем.
+     *
+     * @param creatorId идентификатор организатора
+     * @return список мероприятий
+     */
+    public List<Event> findEventsByCreator(String creatorId) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("created_by").is(creatorId));
+        return mongoTemplate.find(query, Event.class);
+    }
+
+    /**
      * Выполняет поиск мероприятий по набору динамических фильтров.
      *
      * @param id        точный ID события
