@@ -116,11 +116,32 @@ public class EventController {
     }
 
     /**
+     * Получает подробные данные о конкретном мероприятии.
+     *
+     * @param eventId идентификатор мероприятия из пути
+     * @param sid     идентификатор сессии из куки
+     * @return 200 и данные события, либо 404 если не найдено
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getEvent(
+            @PathVariable("id") String eventId,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        Event event = eventService.findEvent(eventId);
+
+        if (event == null) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found", sid);
+        }
+
+        return buildSuccessResponse(HttpStatus.OK, event, sid, false);
+    }
+
+    /**
      * Возвращает список мероприятий по фильтрам с пагинацией.
      *
-     * @param id       точный поиск по ID
-     * @param title    поиск по подстроке названия
-     * @param category фильтр по категории
+     * @param id        точный поиск по ID
+     * @param title     поиск по подстроке названия
+     * @param category  фильтр по категории
      * @param priceFrom мин. цена
      * @param priceTo   макс. цена
      * @param username  никнейм создателя
