@@ -1,36 +1,84 @@
 services:
   eventhub:
-    container_name: eventhub
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: eventhub
     ports:
       - ${APP_PORT}:${APP_PORT}
     env_file:
       - .env.local
+    environment:
+      - ${MONGODB_HOST}:${MONGODB_HOST}
+      - ${MONGODB_PORT}:${MONGODB_PORT}
+      - ${REDIS_HOST}:${REDIS_HOST}
     depends_on:
-      - redis
-      - mongodb
+      mongo-setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
     container_name: ${REDIS_HOST}
     ports:
       - ${REDIS_PORT}:${REDIS_PORT}
-    restart: unless-stopped
-    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  mongodb:
+  mongos:
     image: mongo:8.0
     container_name: ${MONGODB_HOST}
+    command: mongos --configdb configReplSet/configsvr01:27017 --port 27017 --bind_ip_all
     ports:
       - ${MONGODB_PORT}:${MONGODB_PORT}
-    environment:
-      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
-      MONGODB_DATABASE: ${MONGODB_DATABASE}
-      MONGODB_USER: ${MONGODB_USER}
-      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+
+  configsvr01:
+    image: mongo:8.0
+    container_name: configsvr01
+    command: mongod --configsvr --replSet configReplSet --port 27017 --bind_ip_all
     volumes:
-      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - config_data:/data/db
+
+  shard01-a:
+    image: mongo:8.0
+    container_name: shard01-a
+    command: mongod --shardsvr --replSet shard01RS --port 27018 --bind_ip_all
+  shard01-b:
+    image: mongo:8.0
+    container_name: shard01-b
+    command: mongod --shardsvr --replSet shard01RS --port 27018 --bind_ip_all
+  shard01-c:
+    image: mongo:8.0
+    container_name: shard01-c
+    command: mongod --shardsvr --replSet shard01RS --port 27018 --bind_ip_all
+
+  shard02-a:
+    image: mongo:8.0
+    container_name: shard02-a
+    command: mongod --shardsvr --replSet shard02RS --port 27018 --bind_ip_all
+  shard02-b:
+    image: mongo:8.0
+    container_name: shard02-b
+    command: mongod --shardsvr --replSet shard02RS --port 27018 --bind_ip_all
+  shard02-c:
+    image: mongo:8.0
+    container_name: shard02-c
+    command: mongod --shardsvr --replSet shard02RS --port 27018 --bind_ip_all
+
+  mongo-setup:
+    image: mongo:8.0
+    container_name: mongo-setup
+    volumes:
+      - ./docker/mongo-init.sh:/mongo-init.sh:ro
+    entrypoint: [ "/bin/bash", "/mongo-init.sh" ]
+    depends_on:
+      - mongos
+      - shard01-a
+      - shard02-a
+
+volumes:
+  config_data:

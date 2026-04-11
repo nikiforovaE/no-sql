@@ -32,7 +32,7 @@ public class Event {
     /**
      * Название события (уникальное).
      */
-    @Indexed(unique = true)
+    @Indexed
     private String title;
 
     /**
