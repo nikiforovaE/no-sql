@@ -16,11 +16,13 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Контроллер для управления пользователями (регистрация).
+ * Контроллер для управления пользователями (организаторами).
  */
 @RestController
 @RequiredArgsConstructor
@@ -168,13 +170,26 @@ public class UserController {
     @GetMapping("/users/{id}/events")
     public ResponseEntity<?> listUserEvents(
             @PathVariable("id") String userId,
+            @RequestParam(required = false) String category,
+            @RequestParam(name = "price_from", required = false) Integer priceFrom,
+            @RequestParam(name = "price_to", required = false) Integer priceTo,
+            @RequestParam(required = false) String city,
+            @RequestParam(name = "date_from", required = false) String dateFrom,
+            @RequestParam(name = "date_to", required = false) String dateTo,
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (userService.findById(userId).isEmpty()) {
             return buildErrorResponse(HttpStatus.NOT_FOUND, "User not found", sid);
         }
 
-        List<Event> events = eventService.findEventsByCreator(userId);
+        if (isInvalidSearchDate(dateFrom))
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"date_from\" field", sid);
+        if (isInvalidSearchDate(dateTo))
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"date_to\" field", sid);
+
+        List<Event> events = eventService.findEvents(
+                null, null, category, priceFrom, priceTo, city, dateFrom, dateTo, null, userId, null, null
+        );
 
         org.example.eventhub.dto.EventListResponse response = org.example.eventhub.dto.EventListResponse.builder()
                 .events(events)
@@ -188,6 +203,20 @@ public class UserController {
         }
 
         return builder.body(response);
+    }
+
+    /**
+     * Валидация даты для параметров поиска (формат YYYYMMDD).
+     */
+    private boolean isInvalidSearchDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) return false;
+        if (!dateStr.matches("\\d{8}")) return true;
+        try {
+            LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            return false;
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     /**

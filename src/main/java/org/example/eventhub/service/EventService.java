@@ -65,18 +65,6 @@ public class EventService {
     }
 
     /**
-     * Находит все мероприятия, созданные конкретным пользователем.
-     *
-     * @param creatorId идентификатор организатора
-     * @return список мероприятий
-     */
-    public List<Event> findEventsByCreator(String creatorId) {
-        Query query = new Query();
-        query.addCriteria(Criteria.where("created_by").is(creatorId));
-        return mongoTemplate.find(query, Event.class);
-    }
-
-    /**
      * Выполняет поиск мероприятий по набору динамических фильтров.
      *
      * @param id        точный ID события
@@ -96,25 +84,21 @@ public class EventService {
             String id, String title, String category,
             Integer priceFrom, Integer priceTo, String city,
             String dateFrom, String dateTo, String username,
+            String creatorId,
             Integer limit, Integer offset
     ) {
         Query query = new Query();
 
-        if (id != null && !id.isBlank()) {
+        if (id != null && !id.isBlank())
             query.addCriteria(Criteria.where("_id").is(id));
-        }
-
-        if (title != null && !title.isBlank()) {
+        if (title != null && !title.isBlank())
             query.addCriteria(Criteria.where("title").regex(title, "i"));
-        }
-
-        if (category != null && !category.isBlank()) {
+        if (category != null && !category.isBlank())
             query.addCriteria(Criteria.where("category").is(category));
-        }
-
-        if (city != null && !city.isBlank()) {
+        if (city != null && !city.isBlank())
             query.addCriteria(Criteria.where("location.city").is(city));
-        }
+        if (creatorId != null && !creatorId.isBlank())
+            query.addCriteria(Criteria.where("created_by").is(creatorId));
 
         if (priceFrom != null || priceTo != null) {
             Criteria priceCriteria = Criteria.where("price");
