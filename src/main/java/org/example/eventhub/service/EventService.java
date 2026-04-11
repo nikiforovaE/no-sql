@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -21,6 +22,7 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final MongoTemplate mongoTemplate;
+    private final UserService userService;
 
     /**
      * Проверяет, занято ли указанное название события.
@@ -63,23 +65,79 @@ public class EventService {
     }
 
     /**
-     * Выполняет поиск событий с использованием фильтрации по названию и пагинации.
+     * Выполняет поиск мероприятий по набору динамических фильтров.
      *
-     * @param title  подстрока для поиска в названии
-     * @param limit  максимальное количество результатов
-     * @param offset количество пропускаемых результатов
-     * @return список найденных событий
+     * @param id        точный ID события
+     * @param title     подстрока названия
+     * @param category  категория события
+     * @param priceFrom минимальная цена
+     * @param priceTo   максимальная цена
+     * @param city      город проведения
+     * @param dateFrom  начальная дата поиска (YYYYMMDD)
+     * @param dateTo    конечная дата поиска (YYYYMMDD)
+     * @param username  никнейм создателя события
+     * @param limit     ограничение количества результатов
+     * @param offset    количество пропускаемых результатов
+     * @return список найденных мероприятий
      */
-    public List<Event> findEvents(String title, Integer limit, Integer offset) {
+    public List<Event> findEvents(
+            String id, String title, String category,
+            Integer priceFrom, Integer priceTo, String city,
+            String dateFrom, String dateTo, String username,
+            Integer limit, Integer offset
+    ) {
         Query query = new Query();
+
+        if (id != null && !id.isBlank()) {
+            query.addCriteria(Criteria.where("_id").is(id));
+        }
 
         if (title != null && !title.isBlank()) {
             query.addCriteria(Criteria.where("title").regex(title, "i"));
+        }
+
+        if (category != null && !category.isBlank()) {
+            query.addCriteria(Criteria.where("category").is(category));
+        }
+
+        if (city != null && !city.isBlank()) {
+            query.addCriteria(Criteria.where("location.city").is(city));
+        }
+
+        if (priceFrom != null || priceTo != null) {
+            Criteria priceCriteria = Criteria.where("price");
+            if (priceFrom != null) priceCriteria.gte(priceFrom);
+            if (priceTo != null) priceCriteria.lte(priceTo);
+            query.addCriteria(priceCriteria);
+        }
+
+        if (dateFrom != null || dateTo != null) {
+            Criteria dateCriteria = Criteria.where("started_at");
+            if (dateFrom != null) {
+                dateCriteria.gte(formatSearchDate(dateFrom));
+            }
+            if (dateTo != null) {
+                dateCriteria.lte(formatSearchDate(dateTo) + "T23:59:59Z");
+            }
+            query.addCriteria(dateCriteria);
+        }
+
+        if (username != null && !username.isBlank()) {
+            var user = userService.findByUsername(username);
+            if (user.isPresent()) {
+                query.addCriteria(Criteria.where("created_by").is(user.get().getId()));
+            } else {
+                return List.of();
+            }
         }
 
         if (offset != null) query.skip(offset);
         if (limit != null) query.limit(limit);
 
         return mongoTemplate.find(query, Event.class);
+    }
+
+    private String formatSearchDate(String date) {
+        return LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyyMMdd")).toString();
     }
 }

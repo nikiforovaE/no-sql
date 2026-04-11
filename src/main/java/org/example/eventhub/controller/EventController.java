@@ -13,7 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,10 +41,7 @@ public class EventController {
      * @return 201 и ID события, либо ошибка (400, 401, 409)
      */
     @PostMapping
-    public ResponseEntity<?> createEvent(
-            @RequestBody EventCreateRequest request,
-            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
-    ) {
+    public ResponseEntity<?> createEvent(@RequestBody EventCreateRequest request, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         String userId = sessionService.getUserId(sid);
         if (userId == null) {
             return buildErrorResponse(HttpStatus.UNAUTHORIZED, null, sid);
@@ -61,14 +60,7 @@ public class EventController {
             return buildErrorResponse(HttpStatus.CONFLICT, "event already exists", sid);
         }
 
-        Event event = Event.builder()
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .location(Event.Location.builder().address(request.getAddress()).build())
-                .startedAt(request.getStartedAt())
-                .finishedAt(request.getFinishedAt())
-                .createdBy(userId)
-                .build();
+        Event event = Event.builder().title(request.getTitle()).description(request.getDescription()).location(Event.Location.builder().address(request.getAddress()).build()).startedAt(request.getStartedAt()).finishedAt(request.getFinishedAt()).createdBy(userId).build();
 
         Event savedEvent = eventService.saveEvent(event);
 
@@ -83,11 +75,7 @@ public class EventController {
      * @return 201 и ID события, либо ошибка (400, 401, 409)
      */
     @PatchMapping("/{id}")
-    public ResponseEntity<?> updateEvent(
-            @PathVariable("id") String eventId,
-            @RequestBody EventPatchRequest request,
-            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
-    ) {
+    public ResponseEntity<?> updateEvent(@PathVariable("id") String eventId, @RequestBody EventPatchRequest request, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         String userId = sessionService.getUserId(sid);
         if (userId == null) {
             return buildErrorResponse(HttpStatus.UNAUTHORIZED, null, sid);
@@ -128,16 +116,29 @@ public class EventController {
     }
 
     /**
-     * Возвращает список событий с фильтрацией и пагинацией.
+     * Возвращает список мероприятий по фильтрам с пагинацией.
      *
-     * @param title  подстрока для поиска в названии (LIKE)
-     * @param limit  макс. количество записей
-     * @param offset количество пропускаемых записей
-     * @return объект со списком событий и их общим количеством
+     * @param id       точный поиск по ID
+     * @param title    поиск по подстроке названия
+     * @param category фильтр по категории
+     * @param priceFrom мин. цена
+     * @param priceTo   макс. цена
+     * @param username  никнейм создателя
+     * @param dateFrom  начало (YYYYMMDD)
+     * @param dateTo    конец (YYYYMMDD)
+     * @return 200 со списком событий и количеством
      */
     @GetMapping
     public ResponseEntity<?> listEvents(
+            @RequestParam(required = false) String id,
             @RequestParam(required = false) String title,
+            @RequestParam(required = false) String category,
+            @RequestParam(name = "price_from", required = false) Integer priceFrom,
+            @RequestParam(name = "price_to", required = false) Integer priceTo,
+            @RequestParam(required = false) String city,
+            @RequestParam(name = "date_from", required = false) String dateFrom,
+            @RequestParam(name = "date_to", required = false) String dateTo,
+            @RequestParam(name = "user", required = false) String username,
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) Integer offset,
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
@@ -147,7 +148,19 @@ public class EventController {
         if (offset != null && offset < 0)
             return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"offset\" parameter", sid);
 
-        List<Event> events = eventService.findEvents(title, limit, offset);
+        if (priceFrom != null && priceFrom < 0)
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"price_from\" field", sid);
+        if (priceTo != null && priceTo < 0)
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"price_to\" field", sid);
+
+        if (isInvalidSearchDate(dateFrom))
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"date_from\" field", sid);
+        if (isInvalidSearchDate(dateTo))
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"date_to\" field", sid);
+
+        List<Event> events = eventService.findEvents(
+                id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, limit, offset
+        );
 
         EventListResponse responseBody = EventListResponse.builder()
                 .events(events)
@@ -158,7 +171,21 @@ public class EventController {
     }
 
     /**
-     * Проверяет строку на соответствие формату даты RFC3339.
+     * Валидация даты для ПОИСКА (формат YYYYMMDD).
+     */
+    private boolean isInvalidSearchDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) return false;
+        if (!dateStr.matches("\\d{8}")) return true;
+        try {
+            LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            return false;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * Валидация даты для СОЗДАНИЯ (формат RFC3339).
      */
     private boolean isInvalidDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return true;
