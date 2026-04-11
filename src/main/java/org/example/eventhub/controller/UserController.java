@@ -1,6 +1,7 @@
 package org.example.eventhub.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.example.eventhub.dto.UserListResponse;
 import org.example.eventhub.dto.UserRegistrationRequest;
 import org.example.eventhub.model.User;
 import org.example.eventhub.service.SessionService;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -69,6 +71,53 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .build();
+    }
+
+    /**
+     * Выполняет поиск пользователей (организаторов) по заданным фильтрам.
+     *
+     * @param id     поиск по точному ID
+     * @param name   поиск по вхождению в полное имя
+     * @param limit  ограничение выборки
+     * @param offset количество пропускаемых записей
+     * @param sid    идентификатор сессии для продления
+     * @return 200 OK со списком UserShortInfo
+     */
+    @GetMapping("/users")
+    public ResponseEntity<?> listUsers(
+            @RequestParam(required = false) String id,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        if (limit != null && limit < 0)
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"limit\" field", sid);
+        if (offset != null && offset < 0)
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"offset\" field", sid);
+
+        List<User> foundUsers = userService.findUsers(id, name, limit, offset);
+
+        List<UserListResponse.UserInfo> shortInfos = foundUsers.stream()
+                .map(u -> UserListResponse.UserInfo.builder()
+                        .id(u.getId())
+                        .full_name(u.getFullName())
+                        .username(u.getUsername())
+                        .build())
+                .toList();
+
+        UserListResponse response = UserListResponse.builder()
+                .users(shortInfos)
+                .count(shortInfos.size())
+                .build();
+
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+        if (sid != null && sessionService.exists(sid)) {
+            sessionService.updateSession(sid);
+            builder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
+        }
+
+        return builder.body(response);
     }
 
     /**

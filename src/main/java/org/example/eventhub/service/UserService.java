@@ -6,6 +6,7 @@ import org.example.eventhub.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -16,6 +17,7 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
 
     /**
      * Проверяет, зарегистрирован ли пользователь с таким логином.
@@ -54,6 +56,26 @@ public class UserService {
         return userRepository.findByUsername(username);
     }
 
+    /**
+     * Выполняет поиск пользователей по фильтрам.
+     */
+    public List<User> findUsers(String id, String name, Integer limit, Integer offset) {
+        org.springframework.data.mongodb.core.query.Query query =
+                new org.springframework.data.mongodb.core.query.Query();
+
+        if (id != null && !id.isBlank()) {
+            query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("_id").is(id));
+        }
+
+        if (name != null && !name.isBlank()) {
+            query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("full_name").regex(name, "i"));
+        }
+
+        if (offset != null) query.skip(offset);
+        if (limit != null) query.limit(limit);
+
+        return mongoTemplate.find(query, User.class);
+    }
     /**
      * Сверяет введенный пароль с хешем из базы данных.
      *
