@@ -47,6 +47,15 @@ public class UserService {
     }
 
     /**
+     * Находит пользователя по его уникальному идентификатору.
+     *
+     * @param id идентификатор пользователя
+     * @return Optional с объектом пользователя
+     */
+    public Optional<User> findById(String id) {
+        return userRepository.findById(id);
+    }
+    /**
      * Ищет пользователя по имени.
      *
      * @param username имя пользователя

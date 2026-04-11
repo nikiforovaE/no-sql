@@ -121,6 +121,41 @@ public class UserController {
     }
 
     /**
+     * Получает подробные данные об организаторе.
+     *
+     * @param id  идентификатор пользователя из пути
+     * @param sid идентификатор сессии из куки
+     * @return 200 с данными пользователя или 404, если не найден
+     */
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUser(
+            @PathVariable("id") String id,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        var userOpt = userService.findById(id);
+
+        if (userOpt.isEmpty()) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found", sid);
+        }
+
+        User user = userOpt.get();
+
+        UserListResponse.UserInfo responseBody = UserListResponse.UserInfo.builder()
+                .id(user.getId())
+                .full_name(user.getFullName())
+                .username(user.getUsername())
+                .build();
+
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+        if (sid != null && sessionService.exists(sid)) {
+            sessionService.updateSession(sid);
+            builder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
+        }
+
+        return builder.body(responseBody);
+    }
+
+    /**
      * Формирует ответ с ошибкой. Если сессия существует, обновляет её срок жизни.
      *
      * @param status  HTTP статус ошибки
