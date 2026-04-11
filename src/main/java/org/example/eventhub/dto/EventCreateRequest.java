@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
- * Объект запроса для создания нового события.
+ * Данные для создания нового события.
  */
 @Data
 public class EventCreateRequest {

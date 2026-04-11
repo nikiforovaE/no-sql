@@ -3,7 +3,7 @@ package org.example.eventhub.dto;
 import lombok.Data;
 
 /**
- * Объект запроса для аутентификации пользователя.
+ * Данные для аутентификации пользователя.
  */
 @Data
 public class LoginRequest {
