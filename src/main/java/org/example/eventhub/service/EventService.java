@@ -44,6 +44,25 @@ public class EventService {
     }
 
     /**
+     * Обновляет существующее мероприятие.
+     *
+     * @param event объект события
+     */
+    public void updateEvent(Event event) {
+        eventRepository.save(event);
+    }
+
+    /**
+     * Выполняет поиск событий по id.
+     *
+     * @param id идектификатор события
+     * @return сохраненный объект с соответсвующим ID
+     */
+    public Event findEvent(String id) {
+        return eventRepository.findById(id).orElse(null);
+    }
+
+    /**
      * Выполняет поиск событий с использованием фильтрации по названию и пагинации.
      *
      * @param title  подстрока для поиска в названии

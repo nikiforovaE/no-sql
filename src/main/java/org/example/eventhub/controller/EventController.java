@@ -3,6 +3,7 @@ package org.example.eventhub.controller;
 import lombok.RequiredArgsConstructor;
 import org.example.eventhub.dto.EventCreateRequest;
 import org.example.eventhub.dto.EventListResponse;
+import org.example.eventhub.dto.EventPatchRequest;
 import org.example.eventhub.model.Event;
 import org.example.eventhub.service.EventService;
 import org.example.eventhub.service.SessionService;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Контроллер для создания и просмотра событий.
@@ -23,6 +25,7 @@ import java.util.Map;
 @RequestMapping("/events")
 @RequiredArgsConstructor
 public class EventController {
+    private static final Set<String> ALLOWED_CATEGORIES = Set.of("meetup", "concert", "exhibition", "party", "other");
 
     private final EventService eventService;
     private final SessionService sessionService;
@@ -42,20 +45,20 @@ public class EventController {
     ) {
         String userId = sessionService.getUserId(sid);
         if (userId == null) {
-            return buildErrorResponse(HttpStatus.UNAUTHORIZED, null, sid, "field");
+            return buildErrorResponse(HttpStatus.UNAUTHORIZED, null, sid);
         }
 
         if (request.getTitle() == null || request.getTitle().isBlank())
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"title\" field", sid, "field");
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"title\" field", sid);
         if (request.getAddress() == null || request.getAddress().isBlank())
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"address\" field", sid, "field");
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"address\" field", sid);
         if (isInvalidDate(request.getStartedAt()))
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"started_at\" field", sid, "field");
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"started_at\" field", sid);
         if (isInvalidDate(request.getFinishedAt()))
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"finished_at\" field", sid, "field");
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"finished_at\" field", sid);
 
         if (eventService.isTitleBusy(request.getTitle())) {
-            return buildErrorResponse(HttpStatus.CONFLICT, "event already exists", sid, "field");
+            return buildErrorResponse(HttpStatus.CONFLICT, "event already exists", sid);
         }
 
         Event event = Event.builder()
@@ -70,6 +73,58 @@ public class EventController {
         Event savedEvent = eventService.saveEvent(event);
 
         return buildSuccessResponse(HttpStatus.CREATED, Map.of("id", savedEvent.getId()), sid, true);
+    }
+
+    /**
+     * Редактирует данные о мероприятии. Доступ только у организатора.
+     *
+     * @param request данные события (категория, цена билета, город)
+     * @param sid     идентификатор сессии
+     * @return 201 и ID события, либо ошибка (400, 401, 409)
+     */
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> updateEvent(
+            @PathVariable("id") String eventId,
+            @RequestBody EventPatchRequest request,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        String userId = sessionService.getUserId(sid);
+        if (userId == null) {
+            return buildErrorResponse(HttpStatus.UNAUTHORIZED, null, sid);
+        }
+
+        Event event = eventService.findEvent(eventId);
+        if (event == null || !event.getCreatedBy().equals(userId))
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found. Be sure that event exists and you are the organizer", sid);
+
+        if (request.getCategory() != null) {
+            if (!ALLOWED_CATEGORIES.contains(request.getCategory())) {
+                return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"category\" field", sid);
+            }
+            event.setCategory(request.getCategory());
+        }
+
+        if (request.getPrice() != null) {
+            if (request.getPrice() < 0) {
+                return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"price\" field", sid);
+            }
+            event.setPrice(request.getPrice());
+        }
+
+        if (request.getCity() != null) {
+            if (event.getLocation() == null) {
+                event.setLocation(new Event.Location());
+            }
+
+            if (request.getCity().isEmpty()) {
+                event.getLocation().setCity(null);
+            } else {
+                event.getLocation().setCity(request.getCity());
+            }
+        }
+        eventService.updateEvent(event);
+
+        return buildSuccessResponse(HttpStatus.NO_CONTENT, null, sid, true);
     }
 
     /**
@@ -88,9 +143,9 @@ public class EventController {
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (limit != null && limit < 0)
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"limit\" parameter", sid, "parameter");
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"limit\" parameter", sid);
         if (offset != null && offset < 0)
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"offset\" parameter", sid, "parameter");
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"offset\" parameter", sid);
 
         List<Event> events = eventService.findEvents(title, limit, offset);
 
@@ -132,7 +187,7 @@ public class EventController {
     /**
      * Формирует ответ с ошибкой и обновляет куку для продления сессии.
      */
-    private ResponseEntity<?> buildErrorResponse(HttpStatus status, String message, String sid, String errorType) {
+    private ResponseEntity<?> buildErrorResponse(HttpStatus status, String message, String sid) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
         if (sid != null && sessionService.exists(sid)) {
             sessionService.updateSession(sid);

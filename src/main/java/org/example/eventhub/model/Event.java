@@ -71,6 +71,16 @@ public class Event {
     private String finishedAt;
 
     /**
+     * Категория мероприятия
+     */
+    private String category;
+
+    /**
+     * Цена билета на мероприятие
+     */
+    private Integer price;
+
+    /**
      * Вложенный объект для хранения данных о локации.
      */
     @Data
@@ -82,5 +92,9 @@ public class Event {
          * Физический адрес проведения.
          */
         private String address;
+        /**
+         * Наименование города проведения.
+         */
+        private String city;
     }
 }
