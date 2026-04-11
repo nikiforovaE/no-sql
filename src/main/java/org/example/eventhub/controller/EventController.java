@@ -180,7 +180,7 @@ public class EventController {
             return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"date_to\" field", sid);
 
         List<Event> events = eventService.findEvents(
-                id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, limit, offset
+                id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, null, limit, offset
         );
 
         EventListResponse responseBody = EventListResponse.builder()
