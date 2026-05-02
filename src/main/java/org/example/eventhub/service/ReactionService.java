@@ -89,5 +89,8 @@ public class ReactionService {
 
         String cacheKey = "event:" + DigestUtils.md5Hex(title.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + ":reactions";
         redisTemplate.delete(cacheKey);
+
+        // Принудительно вызываем метод чтения.
+        getReactions(title);
     }
 }
