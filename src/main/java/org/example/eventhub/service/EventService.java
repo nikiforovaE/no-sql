@@ -142,7 +142,24 @@ public class EventService {
      */
     public void likeEvent(String eventId, String userId) {
         Query query = new Query(Criteria.where("_id").is(eventId));
-        Update update = new Update().addToSet("likes", userId);
+        Update update = new Update()
+                .addToSet("likes", userId)
+                .pull("dislikes", userId);
+        mongoTemplate.updateFirst(query, update, Event.class);
+    }
+
+    /**
+     * Регистрирует дизлайк пользователя на мероприятие.
+     * Использует $addToSet для дизлайка и $pull для удаления лайка, если он был.
+     *
+     * @param eventId идентификатор мероприятия
+     * @param userId  идентификатор пользователя
+     */
+    public void dislikeEvent(String eventId, String userId) {
+        Query query = new Query(Criteria.where("_id").is(eventId));
+        Update update = new Update()
+                .addToSet("dislikes", userId)
+                .pull("likes", userId);
         mongoTemplate.updateFirst(query, update, Event.class);
     }
 

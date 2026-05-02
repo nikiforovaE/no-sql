@@ -100,6 +100,12 @@ public class Event {
     private List<String> likes;
 
     /**
+     * Список идентификаторов пользователей, поставивших дизлайк.
+     */
+    @Schema(description = "Список ID пользователей, поставивших дизлайк")
+    private List<String> dislikes;
+
+    /**
      * Вложенный объект для хранения данных о локации.
      */
     @Data

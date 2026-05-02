@@ -338,6 +338,56 @@ public class EventController {
     }
 
     /**
+     * Добавляет дизлайк мероприятию. Доступно только для авторизованных пользователей.
+     *
+     * @param eventId идентификатор мероприятия
+     * @param sid     идентификатор сессии
+     * @return 204 No Content или ошибка (401, 404)
+     */
+    @Operation(
+            summary = "Дизлайк на мероприятие",
+            description = "Позволяет авторизованному пользователю поставить дизлайк мероприятию. При этом лайк (если он был) удаляется."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Дизлайк успешно поставлен",
+                    headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновляет TTL сессии", schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Пользователь не авторизован",
+                    headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Удаляет куку (Max-Age=0)", schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Мероприятие не найдено",
+                    content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Event not found\"}"))
+            )
+    })
+    @PostMapping("/{id}/dislike")
+    public ResponseEntity<?> dislikeEvent(
+            @Parameter(description = "ID мероприятия", example = "12e9c0b1a2b3c3d5e6f7a8b7") @PathVariable("id") String eventId,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        String userId = sessionService.getUserId(sid);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, cookieProvider.deleteSessionCookie().toString())
+                    .build();
+        }
+
+        Event event = eventService.findEvent(eventId);
+        if (event == null) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+        }
+
+        eventService.dislikeEvent(eventId, userId);
+
+        return buildSuccessResponse(HttpStatus.NO_CONTENT, null, sid, true);
+    }
+
+    /**
      * Валидирует формат даты поиска (формат YYYYMMDD).
      *
      * @param dateStr строка даты
