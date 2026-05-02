@@ -6,12 +6,11 @@ services:
     container_name: eventhub
     ports:
       - ${APP_PORT}:${APP_PORT}
-    env_file:
-      - .env.local
+    env_file: .env.local
     environment:
-      - ${MONGODB_HOST}:${MONGODB_HOST}
-      - ${MONGODB_PORT}:${MONGODB_PORT}
-      - ${REDIS_HOST}:${REDIS_HOST}
+      MONGODB_HOST: ${MONGODB_HOST}
+      MONGODB_PORT: ${MONGODB_PORT}
+      REDIS_HOST: ${REDIS_HOST}
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
@@ -21,6 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ${REDIS_HOST}
+    env_file: .env.local
     ports:
       - ${REDIS_PORT}:${REDIS_PORT}
     healthcheck:
@@ -32,45 +32,54 @@ services:
   mongos:
     image: mongo:8.0
     container_name: ${MONGODB_HOST}
-    command: mongos --configdb configReplSet/configsvr01:27017 --port 27017 --bind_ip_all
+    env_file: .env.local
+    command: mongos --configdb configReplSet/configsvr01:${MONGODB_PORT} --port ${MONGODB_PORT} --bind_ip_all
     ports:
       - ${MONGODB_PORT}:${MONGODB_PORT}
 
   configsvr01:
     image: mongo:8.0
+    env_file: .env.local
     container_name: configsvr01
-    command: mongod --configsvr --replSet configReplSet --port 27017 --bind_ip_all
+    command: mongod --configsvr --replSet configReplSet --port ${MONGODB_PORT} --bind_ip_all
     volumes:
       - config_data:/data/db
 
   shard01-a:
     image: mongo:8.0
+    env_file: .env.local
     container_name: shard01-a
-    command: mongod --shardsvr --replSet shard01RS --port 27018 --bind_ip_all
+    command: mongod --shardsvr --replSet shard01RS --port ${MONGO_SHARD_PORT} --bind_ip_all
   shard01-b:
+    env_file: .env.local
     image: mongo:8.0
     container_name: shard01-b
-    command: mongod --shardsvr --replSet shard01RS --port 27018 --bind_ip_all
+    command: mongod --shardsvr --replSet shard01RS --port ${MONGO_SHARD_PORT} --bind_ip_all
   shard01-c:
     image: mongo:8.0
+    env_file: .env.local
     container_name: shard01-c
-    command: mongod --shardsvr --replSet shard01RS --port 27018 --bind_ip_all
+    command: mongod --shardsvr --replSet shard01RS --port ${MONGO_SHARD_PORT} --bind_ip_all
 
   shard02-a:
     image: mongo:8.0
+    env_file: .env.local
     container_name: shard02-a
-    command: mongod --shardsvr --replSet shard02RS --port 27018 --bind_ip_all
+    command: mongod --shardsvr --replSet shard02RS --port ${MONGO_SHARD_PORT} --bind_ip_all
   shard02-b:
     image: mongo:8.0
+    env_file: .env.local
     container_name: shard02-b
-    command: mongod --shardsvr --replSet shard02RS --port 27018 --bind_ip_all
+    command: mongod --shardsvr --replSet shard02RS --port ${MONGO_SHARD_PORT} --bind_ip_all
   shard02-c:
     image: mongo:8.0
+    env_file: .env.local
     container_name: shard02-c
-    command: mongod --shardsvr --replSet shard02RS --port 27018 --bind_ip_all
+    command: mongod --shardsvr --replSet shard02RS --port ${MONGO_SHARD_PORT} --bind_ip_all
 
   mongo-setup:
     image: mongo:8.0
+    env_file: .env.local
     container_name: mongo-setup
     volumes:
       - ./docker/mongo-init.sh:/mongo-init.sh:ro
