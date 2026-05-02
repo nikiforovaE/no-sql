@@ -6,6 +6,7 @@ import org.example.eventhub.repository.EventRepository;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -131,6 +132,18 @@ public class EventService {
         if (limit != null) query.limit(limit);
 
         return mongoTemplate.find(query, Event.class);
+    }
+
+    /**
+     * Регистрирует лайк пользователя на мероприятие.
+     *
+     * @param eventId идентификатор мероприятия
+     * @param userId  идентификатор пользователя
+     */
+    public void likeEvent(String eventId, String userId) {
+        Query query = new Query(Criteria.where("_id").is(eventId));
+        Update update = new Update().addToSet("likes", userId);
+        mongoTemplate.updateFirst(query, update, Event.class);
     }
 
     /**

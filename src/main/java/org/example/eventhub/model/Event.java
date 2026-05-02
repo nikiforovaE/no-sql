@@ -12,6 +12,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.util.List;
+
 /**
  * Модель события для хранения в коллекции "events" MongoDB.
  */
@@ -90,6 +92,12 @@ public class Event {
      */
     @Schema(description = "Цена билета (0 для бесплатных)", example = "0")
     private Integer price;
+
+    /**
+     * Список идентификаторов пользователей, поставивших лайк.
+     */
+    @Schema(description = "Список ID пользователей, поставивших лайк")
+    private List<String> likes;
 
     /**
      * Вложенный объект для хранения данных о локации.
