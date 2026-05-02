@@ -40,7 +40,7 @@ public class ReactionService {
     public ReactionResponse getReactions(String title) {
         if (title == null) return new ReactionResponse(0, 0);
 
-        String cacheKey = "event:" + DigestUtils.md5Hex(title.toLowerCase().trim()) + ":reactions";
+        String cacheKey = "event:" + DigestUtils.md5Hex(title.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + ":reactions";
 
         String cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
@@ -87,7 +87,7 @@ public class ReactionService {
         String cql = "INSERT INTO event_reactions (event_id, created_by, like_value, created_at) VALUES (?, ?, ?, toTimestamp(now()))";
         cqlTemplate.execute(cql, eventId, userId, (byte) value);
 
-        String cacheKey = "event:" + DigestUtils.md5Hex(title.toLowerCase().trim()) + ":reactions";
+        String cacheKey = "event:" + DigestUtils.md5Hex(title.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + ":reactions";
         redisTemplate.delete(cacheKey);
     }
 }
