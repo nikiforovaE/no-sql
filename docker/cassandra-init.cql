@@ -1,3 +1,9 @@
+CREATE KEYSPACE IF NOT EXISTS ${CASSANDRA_KEYSPACE}
+    WITH REPLICATION = {
+        'class' : 'NetworkTopologyStrategy',
+        'dc1' : 1
+        };
+
 USE ${CASSANDRA_KEYSPACE};
 
 CREATE TABLE IF NOT EXISTS event_reactions

@@ -99,7 +99,7 @@ services:
       - CASSANDRA_DC=dc1
       - CASSANDRA_RACK=rack1
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
-      - CASSANDRA_SEEDS=cassandra
+      - CASSANDRA_SEEDS=${CASSANDRA_HOSTS}
       - MAX_HEAP_SIZE=2G
       - HEAP_NEWSIZE=256M
     mem_limit: 4g
