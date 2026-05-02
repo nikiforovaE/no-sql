@@ -206,7 +206,10 @@ public class UserController {
     }
 
     /**
-     * Валидация даты для параметров поиска (формат YYYYMMDD).
+     * Валидирует формат даты поиска (YYYYMMDD).
+     *
+     * @param dateStr строка даты для проверки
+     * @return true, если формат даты неверен
      */
     private boolean isInvalidSearchDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return false;

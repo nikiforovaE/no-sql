@@ -133,6 +133,12 @@ public class EventService {
         return mongoTemplate.find(query, Event.class);
     }
 
+    /**
+     * Вспомогательный метод для приведения даты из строки поиска к ISO формату.
+     *
+     * @param date строка даты в формате YYYYMMDD
+     * @return строковое представление даты (ISO)
+     */
     private String formatSearchDate(String date) {
         return LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyyMMdd")).toString();
     }

@@ -192,7 +192,10 @@ public class EventController {
     }
 
     /**
-     * Валидация даты для ПОИСКА (формат YYYYMMDD).
+     * Валидирует формат даты поиска (формат YYYYMMDD).
+     *
+     * @param dateStr строка даты
+     * @return true если дата невалидна
      */
     private boolean isInvalidSearchDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return false;
@@ -206,7 +209,10 @@ public class EventController {
     }
 
     /**
-     * Валидация даты для СОЗДАНИЯ (формат RFC3339).
+     * Валидирует формат даты для событий (формат RFC3339).
+     *
+     * @param dateStr строка даты
+     * @return true если дата невалидна
      */
     private boolean isInvalidDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return true;
@@ -220,6 +226,12 @@ public class EventController {
 
     /**
      * Формирует успешный ответ и (опционально) обновляет TTL сессии.
+     *
+     * @param status    статус ответа
+     * @param body      тело ответа
+     * @param sid       идентификатор сессии
+     * @param updateTtl признак обновления TTL
+     * @return объект ResponseEntity
      */
     private ResponseEntity<?> buildSuccessResponse(HttpStatus status, Object body, String sid, boolean updateTtl) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
@@ -233,7 +245,12 @@ public class EventController {
     }
 
     /**
-     * Формирует ответ с ошибкой и обновляет куку для продления сессии.
+     * Формирует ответ с ошибкой и обновляет сессию, если она активна.
+     *
+     * @param status  статус ответа
+     * @param message сообщение об ошибке
+     * @param sid     идентификатор сессии
+     * @return объект ResponseEntity
      */
     private ResponseEntity<?> buildErrorResponse(HttpStatus status, String message, String sid) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);

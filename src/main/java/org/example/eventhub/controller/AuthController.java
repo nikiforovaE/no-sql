@@ -79,6 +79,11 @@ public class AuthController {
 
     /**
      * Формирует ответ с ошибкой, поддерживая жизнь текущей сессии.
+     *
+     * @param status  HTTP статус ответа
+     * @param message сообщение об ошибке
+     * @param sid     идентификатор текущей сессии
+     * @return объект {@link ResponseEntity} с телом ошибки
      */
     private ResponseEntity<Map<String, String>> buildErrorResponse(HttpStatus status, String message, String sid) {
         ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
