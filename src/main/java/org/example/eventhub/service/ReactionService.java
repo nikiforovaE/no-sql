@@ -63,11 +63,12 @@ public class ReactionService {
             long dislikes = values.stream().filter(v -> v == -1).count();
             result = ReactionResponse.builder().likes(likes).dislikes(dislikes).build();
 
-            try {
-                redisTemplate.opsForValue().set(cacheKey,
-
-                        objectMapper.writeValueAsString(result), Duration.ofSeconds(appConfig.getLikeTtl()));
-            } catch (Exception ignored) {
+            if (!values.isEmpty()) {
+                try {
+                    redisTemplate.opsForValue().set(cacheKey,
+                            objectMapper.writeValueAsString(result), Duration.ofSeconds(appConfig.getLikeTtl()));
+                } catch (Exception ignored) {
+                }
             }
         }
 
