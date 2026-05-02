@@ -14,8 +14,6 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import java.util.List;
-
 /**
  * Модель события для хранения в коллекции "events" MongoDB.
  */
@@ -116,6 +114,11 @@ public class Event {
         private String city;
     }
 
+
+    /**
+     * Счетчики реакций (не хранится в MongoDB).
+     */
     @Transient
+    @Schema(description = "Объект со счетчиками реакций (лайков и дизлайков)")
     private ReactionResponse reactions;
 }

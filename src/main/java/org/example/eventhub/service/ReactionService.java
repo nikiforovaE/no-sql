@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.List;
 
+/**
+ * Сервис для управления реакциями пользователей на мероприятия.
+ */
 @Service
 @RequiredArgsConstructor
 public class ReactionService {
@@ -28,8 +31,11 @@ public class ReactionService {
     private final AppConfig appConfig;
 
     /**
-     * Получение реакций (Cache-Aside).
-     * Агрегирует лайки по всем мероприятиям с одинаковым названием.
+     * Получает агрегированные реакции для мероприятия.
+     * Выполняет агрегацию по названию события, используя кэш Redis.
+     *
+     * @param title название мероприятия
+     * @return объект ReactionResponse со счетчиками лайков и дизлайков
      */
     public ReactionResponse getReactions(String title) {
         if (title == null) return new ReactionResponse(0, 0);
@@ -55,7 +61,7 @@ public class ReactionService {
             List<Byte> values = cqlTemplate.queryForList(cql, Byte.class);
             long likes = values.stream().filter(v -> v == 1).count();
             long dislikes = values.stream().filter(v -> v == -1).count();
-            result = new ReactionResponse(likes, dislikes);
+            result = ReactionResponse.builder().likes(likes).dislikes(dislikes).build();
 
             try {
                 redisTemplate.opsForValue().set(cacheKey,
@@ -69,7 +75,12 @@ public class ReactionService {
     }
 
     /**
-     * Сохранение реакции в Cassandra и удаление кэша из Redis.
+     * Сохраняет реакцию пользователя в Cassandra и удаляет неактуальный кэш из Redis.
+     *
+     * @param eventId идентификатор мероприятия
+     * @param userId  идентификатор пользователя
+     * @param value   значение реакции (1 или -1)
+     * @param title   название мероприятия (для инвалидации кэша)
      */
     public void saveReaction(String eventId, String userId, int value, String title) {
         String cql = "INSERT INTO event_reactions (event_id, created_by, like_value, created_at) VALUES (?, ?, ?, toTimestamp(now()))";

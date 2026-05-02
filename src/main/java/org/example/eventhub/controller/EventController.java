@@ -144,7 +144,7 @@ public class EventController {
         if (event == null) return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found", sid);
 
         if ("reactions".equals(include)) {
-            eventService.enrichWithReactions(event);
+            eventService.applyReactions(event);
         }
 
         return buildSuccessResponse(HttpStatus.OK, event, sid, false);
@@ -186,7 +186,7 @@ public class EventController {
         List<Event> events = eventService.findEvents(id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, null, limit, offset);
 
         if ("reactions".equals(include)) {
-            events.forEach(eventService::enrichWithReactions);
+            events.forEach(eventService::applyReactions);
         }
 
         EventListResponse responseBody = EventListResponse.builder().events(events).count(events.size()).build();
