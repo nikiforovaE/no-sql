@@ -25,6 +25,11 @@ public class RedisConfig {
     @Value("${REDIS_DB:0}")
     private int redisDb;
 
+    /**
+     * Создает фабрику соединений для Redis на базе Lettuce.
+     *
+     * @return настроенная фабрика LettuceConnectionFactory
+     */
     @Bean
     public LettuceConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
@@ -37,6 +42,12 @@ public class RedisConfig {
         return new LettuceConnectionFactory(config);
     }
 
+    /**
+     * Создает шаблон для работы со строковыми ключами и значениями в Redis.
+     *
+     * @param connectionFactory фабрика соединений
+     * @return StringRedisTemplate
+     */
     @Bean
     public StringRedisTemplate stringRedisTemplate(LettuceConnectionFactory connectionFactory) {
         return new StringRedisTemplate(connectionFactory);
