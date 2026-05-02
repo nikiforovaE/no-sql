@@ -5,7 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.example.eventhub.dto.ReactionResponse;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -94,18 +96,6 @@ public class Event {
     private Integer price;
 
     /**
-     * Список идентификаторов пользователей, поставивших лайк.
-     */
-    @Schema(description = "Список ID пользователей, поставивших лайк")
-    private List<String> likes;
-
-    /**
-     * Список идентификаторов пользователей, поставивших дизлайк.
-     */
-    @Schema(description = "Список ID пользователей, поставивших дизлайк")
-    private List<String> dislikes;
-
-    /**
      * Вложенный объект для хранения данных о локации.
      */
     @Data
@@ -125,4 +115,7 @@ public class Event {
         @Schema(description = "Город", example = "Москва")
         private String city;
     }
+
+    @Transient
+    private ReactionResponse reactions;
 }

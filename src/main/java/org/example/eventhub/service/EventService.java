@@ -24,6 +24,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final MongoTemplate mongoTemplate;
     private final UserService userService;
+    private final ReactionService reactionService;
 
     /**
      * Проверяет, занято ли указанное название события.
@@ -141,11 +142,10 @@ public class EventService {
      * @param userId  идентификатор пользователя
      */
     public void likeEvent(String eventId, String userId) {
-        Query query = new Query(Criteria.where("_id").is(eventId));
-        Update update = new Update()
-                .addToSet("likes", userId)
-                .pull("dislikes", userId);
-        mongoTemplate.updateFirst(query, update, Event.class);
+        Event event = findEvent(eventId);
+        if (event != null) {
+            reactionService.saveReaction(eventId, userId, 1, event.getTitle());
+        }
     }
 
     /**
@@ -156,11 +156,17 @@ public class EventService {
      * @param userId  идентификатор пользователя
      */
     public void dislikeEvent(String eventId, String userId) {
-        Query query = new Query(Criteria.where("_id").is(eventId));
-        Update update = new Update()
-                .addToSet("dislikes", userId)
-                .pull("likes", userId);
-        mongoTemplate.updateFirst(query, update, Event.class);
+        Event event = findEvent(eventId);
+        if (event != null) {
+            reactionService.saveReaction(eventId, userId, -1, event.getTitle());
+        }
+    }
+
+    /**
+     * Обогащает мероприятие данными о реакциях из ReactionService.
+     */
+    public void enrichWithReactions(Event event) {
+        event.setReactions(reactionService.getReactions(event.getTitle()));
     }
 
     /**
