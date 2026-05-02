@@ -259,6 +259,14 @@
         "operationId": "listEvents",
         "parameters": [
           {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "id",
             "in": "query",
             "description": "Поиск по точному ID",
@@ -496,6 +504,157 @@
         }
       }
     },
+    "/events/{id}/like": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Лайк на мероприятие",
+        "description": "Позволяет авторизованному пользователю поставить лайк мероприятию.",
+        "operationId": "likeEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Лайк успешно поставлен",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Event not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{id}/dislike": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Дизлайк на мероприятие",
+        "description": "Позволяет авторизованному пользователю поставить дизлайк мероприятию. При этом лайк (если он был) удаляется.",
+        "operationId": "dislikeEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Дизлайк успешно поставлен",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Удаляет куку (Max-Age=0)",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Event not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "tags": [
@@ -621,6 +780,14 @@
               "type": "string"
             },
             "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "X-Session-Id",
