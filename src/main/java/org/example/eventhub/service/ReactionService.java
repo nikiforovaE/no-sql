@@ -1,6 +1,5 @@
 package org.example.eventhub.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.example.eventhub.config.AppConfig;
@@ -15,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Сервис для управления реакциями пользователей на мероприятия.
@@ -26,7 +26,6 @@ public class ReactionService {
     private final CqlTemplate cqlTemplate;
     private final StringRedisTemplate redisTemplate;
     private final MongoTemplate mongoTemplate;
-    private final ObjectMapper objectMapper;
 
     private final AppConfig appConfig;
 
@@ -42,10 +41,12 @@ public class ReactionService {
 
         String cacheKey = "event:" + DigestUtils.md5Hex(title.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + ":reactions";
 
-        String cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null) {
+        Map<Object, Object> cached = redisTemplate.opsForHash().entries(cacheKey);
+        if (!cached.isEmpty()) {
             try {
-                return objectMapper.readValue(cached, ReactionResponse.class);
+                long likes = Long.parseLong(cached.getOrDefault("likes", "0").toString());
+                long dislikes = Long.parseLong(cached.getOrDefault("dislikes", "0").toString());
+                return ReactionResponse.builder().likes(likes).dislikes(dislikes).build();
             } catch (Exception ignored) {
             }
         }
@@ -65,8 +66,9 @@ public class ReactionService {
 
             if (!values.isEmpty()) {
                 try {
-                    redisTemplate.opsForValue().set(cacheKey,
-                            objectMapper.writeValueAsString(result), Duration.ofSeconds(appConfig.getLikeTtl()));
+                    redisTemplate.opsForHash().put(cacheKey, "likes", String.valueOf(likes));
+                    redisTemplate.opsForHash().put(cacheKey, "dislikes", String.valueOf(dislikes));
+                    redisTemplate.expire(cacheKey, Duration.ofSeconds(appConfig.getLikeTtl()));
                 } catch (Exception ignored) {
                 }
             }
