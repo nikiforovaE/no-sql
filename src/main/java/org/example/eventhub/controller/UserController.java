@@ -231,6 +231,7 @@ public class UserController {
             @Parameter(description = "Город") @RequestParam(required = false) String city,
             @Parameter(description = "Дата начала ОТ (YYYYMMDD)") @RequestParam(name = "date_from", required = false) String dateFrom,
             @Parameter(description = "Дата начала ДО (YYYYMMDD)") @RequestParam(name = "date_to", required = false) String dateTo,
+            @Parameter(description = "Параметр include (например, reactions)") @RequestParam(required = false) String include,
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (userService.findById(userId).isEmpty()) {
@@ -245,6 +246,10 @@ public class UserController {
         List<Event> events = eventService.findEvents(
                 null, null, category, priceFrom, priceTo, city, dateFrom, dateTo, null, userId, null, null
         );
+
+        if ("reactions".equals(include)) {
+            events.forEach(eventService::applyReactions);
+        }
 
         org.example.eventhub.dto.EventListResponse response = org.example.eventhub.dto.EventListResponse.builder()
                 .events(events)
