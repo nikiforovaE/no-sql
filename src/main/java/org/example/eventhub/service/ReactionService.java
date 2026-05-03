@@ -13,7 +13,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,24 +57,15 @@ public class ReactionService {
         ReactionResponse result = new ReactionResponse(0, 0);
         if (!eventIds.isEmpty()) {
             String idsClause = String.join("','", eventIds);
-            String cql = "SELECT created_by, like_value FROM event_reactions WHERE event_id IN ('" + idsClause + "')";
 
-            List<Map<String, Object>> rows = cqlTemplate.queryForList(cql);
+            String cql = "SELECT like_value FROM event_reactions WHERE event_id IN ('" + idsClause + "')";
+            List<Byte> values = cqlTemplate.queryForList(cql, Byte.class);
 
-            Map<String, Byte> userReactions = new HashMap<>();
-            for (Map<String, Object> row : rows) {
-                String userId = (String) row.get("created_by");
-                Number val = (Number) row.get("like_value");
-                if (userId != null && val != null) {
-                    userReactions.put(userId, val.byteValue());
-                }
-            }
+            long likes = values.stream().filter(v -> v != null && v == 1).count();
+            long dislikes = values.stream().filter(v -> v != null && v == -1).count();
+            result = ReactionResponse.builder().likes(likes).dislikes(dislikes).build();
 
-            long likes = userReactions.values().stream().filter(v -> v == 1).count();
-            long dislikes = userReactions.values().stream().filter(v -> v == -1).count();
-            result = new ReactionResponse(likes, dislikes);
-
-            if (!userReactions.isEmpty()) {
+            if (!values.isEmpty()) {
                 try {
                     redisTemplate.opsForHash().put(cacheKey, "likes", String.valueOf(likes));
                     redisTemplate.opsForHash().put(cacheKey, "dislikes", String.valueOf(dislikes));
