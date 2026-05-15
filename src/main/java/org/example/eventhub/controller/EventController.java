@@ -51,7 +51,38 @@ public class EventController {
      * @return 201 и ID события, либо ошибка (400, 401, 409)
      */
     @Operation(summary = "Создание события", description = "Доступно только авторизованным пользователям. Создает новое мероприятие и привязывает его к текущему пользователю.")
-    @ApiResponses(value = {@ApiResponse(responseCode = "201", description = "Событие успешно создано", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновляет TTL сессии", schema = @Schema(type = "string")), content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"id\": \"12e9c0b1a2b3c3d5e6f7a8b7\"}"))), @ApiResponse(responseCode = "400", description = "Невалидные входные данные", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"invalid \\\"title\\\" field\"}"))), @ApiResponse(responseCode = "401", description = "Пользователь не авторизован"), @ApiResponse(responseCode = "409", description = "Событие с таким названием уже существует", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"event already exists\"}")))})
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Событие успешно создано",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Обновляет TTL сессии",
+                            schema = @Schema(type = "string")
+                    ),
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"id\": \"12e9c0b1a2b3c3d5e6f7a8b7\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидные входные данные",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"invalid \\\"title\\\" field\"}")
+                    )
+            ),
+            @ApiResponse(responseCode = "401", description = "Пользователь не авторизован"),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Событие с таким названием уже существует",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"event already exists\"}")
+                    )
+            )
+    })
     @PostMapping
     public ResponseEntity<?> createEvent(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Данные нового события", content = @Content(examples = @ExampleObject(value = "{\n  \"title\": \"Мой день рождения\",\n  \"address\": \"г. Санкт-Петербург, ул. Пушкина, дом Колотушкина\",\n  \"started_at\": \"2026-04-01T12:00:00+03:00\",\n  \"finished_at\": \"2026-04-01T23:00:00+03:00\",\n  \"description\": \"Приглашаю вас отпраздновать мое 30-с-чем-то-летие\"\n}"))) @RequestBody EventCreateRequest request, @Parameter(description = "ID сессии из Cookie", example = "3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d") @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         String userId = sessionService.getUserId(sid);
@@ -87,7 +118,34 @@ public class EventController {
      * @return 201 и ID события, либо ошибка (400, 401, 409)
      */
     @Operation(summary = "Редактирование мероприятия", description = "Доступно только организатору мероприятия. Позволяет изменить категорию, цену и город.")
-    @ApiResponses(value = {@ApiResponse(responseCode = "204", description = "Успешное обновление", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновляет TTL сессии", schema = @Schema(type = "string"))), @ApiResponse(responseCode = "400", description = "Невалидные параметры", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"invalid \\\"category\\\" field\"}"))), @ApiResponse(responseCode = "401", description = "Не авторизован"), @ApiResponse(responseCode = "404", description = "Мероприятие не найдено или вы не организатор", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Not found. Be sure that event exists and you are the organizer\"}")))})
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Успешное обновление",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Обновляет TTL сессии",
+                            schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидные параметры",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"invalid \\\"category\\\" field\"}"))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Не авторизован"),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Мероприятие не найдено или вы не организатор",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Not found. Be sure that event exists and you are the organizer\"}")
+                    )
+            )
+    })
     @PatchMapping("/{id}")
     public ResponseEntity<?> updateEvent(@Parameter(description = "ID мероприятия", example = "12e9c0b1a2b3c3d5e6f7a8b7") @PathVariable("id") String eventId, @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Поля для обновления", content = @Content(examples = @ExampleObject(value = "{\n  \"category\": \"concert\",\n  \"price\": 1000,\n  \"city\": \"Москва\"\n}"))) @RequestBody EventPatchRequest request, @Parameter(description = "ID сессии из Cookie") @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         String userId = sessionService.getUserId(sid);
@@ -137,7 +195,24 @@ public class EventController {
      * @return 200 и данные события, либо 404 если не найдено
      */
     @Operation(summary = "Получение мероприятия по ID")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Мероприятие найдено", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Возвращает куку БЕЗ обновления TTL", schema = @Schema(type = "string"))), @ApiResponse(responseCode = "404", description = "Мероприятие не найдено", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Not found\"}")))})
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Мероприятие найдено",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Возвращает куку БЕЗ обновления TTL",
+                            schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Мероприятие не найдено",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Not found\"}")
+                    )
+            )
+    })
     @GetMapping("/{id}")
     public ResponseEntity<?> getEvent(@Parameter(description = "ID мероприятия", example = "12e9c0b1a2b3c3d5e6f7a8b7") @PathVariable("id") String eventId, @RequestParam(required = false) String include, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         Event event = eventService.findEvent(eventId);
@@ -164,7 +239,24 @@ public class EventController {
      * @return 200 со списком событий и количеством
      */
     @Operation(summary = "Поиск мероприятий", description = "Возвращает список мероприятий с фильтрацией по ID, названию, категории, цене, городу, датам и организатору.")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Результаты поиска", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Возвращает куку БЕЗ обновления TTL", schema = @Schema(type = "string"))), @ApiResponse(responseCode = "400", description = "Ошибка в параметрах запроса", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"invalid \\\"limit\\\" parameter\"}")))})
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Результаты поиска",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Возвращает куку БЕЗ обновления TTL",
+                            schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Ошибка в параметрах запроса",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"invalid \\\"limit\\\" parameter\"}")
+                    )
+            )
+    })
     @GetMapping
     public ResponseEntity<?> listEvents(@RequestParam(required = false) String include, // Добавлено
                                         @Parameter(description = "Поиск по точному ID") @RequestParam(required = false) String id, @Parameter(description = "Поиск по подстроке названия") @RequestParam(required = false) String title, @Parameter(description = "Фильтр по категории (meetup, concert, exhibition, party, other)") @RequestParam(required = false) String category, @Parameter(description = "Минимальная цена") @RequestParam(name = "price_from", required = false) Integer priceFrom, @Parameter(description = "Максимальная цена (price_to=0 для бесплатных)") @RequestParam(name = "price_to", required = false) Integer priceTo, @Parameter(description = "Город проведения") @RequestParam(required = false) String city, @Parameter(description = "Дата начала не раньше (YYYYMMDD)", example = "20260314") @RequestParam(name = "date_from", required = false) String dateFrom, @Parameter(description = "Дата начала не позже (YYYYMMDD)", example = "20260314") @RequestParam(name = "date_to", required = false) String dateTo, @Parameter(description = "Никнейм организатора") @RequestParam(name = "user", required = false) String username, @Parameter(description = "Лимит пагинации", example = "10") @RequestParam(required = false) Integer limit, @Parameter(description = "Смещение пагинации", example = "0") @RequestParam(required = false) Integer offset, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
@@ -202,7 +294,27 @@ public class EventController {
      * @return 204 No Content или ошибка (401, 404)
      */
     @Operation(summary = "Лайк на мероприятие", description = "Позволяет авторизованному пользователю поставить лайк мероприятию.")
-    @ApiResponses(value = {@ApiResponse(responseCode = "204", description = "Лайк успешно поставлен", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновляет TTL сессии", schema = @Schema(type = "string"))), @ApiResponse(responseCode = "401", description = "Пользователь не авторизован"), @ApiResponse(responseCode = "404", description = "Мероприятие не найдено", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Event not found\"}")))})
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Лайк успешно поставлен",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Обновляет TTL сессии", schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Пользователь не авторизован"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Мероприятие не найдено",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Event not found\"}")
+                    )
+            )
+    })
     @PostMapping("/{id}/like")
     public ResponseEntity<?> likeEvent(@Parameter(description = "ID мероприятия", example = "12e9c0b1a2b3c3d5e6f7a8b7") @PathVariable("id") String eventId, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         String userId = sessionService.getUserId(sid);
@@ -228,7 +340,33 @@ public class EventController {
      * @return 204 No Content или ошибка (401, 404)
      */
     @Operation(summary = "Дизлайк на мероприятие", description = "Позволяет авторизованному пользователю поставить дизлайк мероприятию. При этом лайк (если он был) удаляется.")
-    @ApiResponses(value = {@ApiResponse(responseCode = "204", description = "Дизлайк успешно поставлен", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновляет TTL сессии", schema = @Schema(type = "string"))), @ApiResponse(responseCode = "401", description = "Пользователь не авторизован", headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Удаляет куку (Max-Age=0)", schema = @Schema(type = "string"))), @ApiResponse(responseCode = "404", description = "Мероприятие не найдено", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Event not found\"}")))})
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Дизлайк успешно поставлен",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Обновляет TTL сессии",
+                            schema = @Schema(type = "string")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Пользователь не авторизован",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Удаляет куку (Max-Age=0)",
+                            schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Мероприятие не найдено",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Event not found\"}")
+                    )
+            )
+    })
     @PostMapping("/{id}/dislike")
     public ResponseEntity<?> dislikeEvent(@Parameter(description = "ID мероприятия", example = "12e9c0b1a2b3c3d5e6f7a8b7") @PathVariable("id") String eventId, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         String userId = sessionService.getUserId(sid);

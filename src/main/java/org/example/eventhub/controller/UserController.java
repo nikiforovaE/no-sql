@@ -129,8 +129,17 @@ public class UserController {
      */
     @Operation(summary = "Поиск организаторов", description = "Возвращает список пользователей с возможностью поиска по имени и ID. Пароли не возвращаются.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешный поиск"),
-            @ApiResponse(responseCode = "400", description = "Невалидные параметры (limit/offset)", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"invalid \\\"limit\\\" field\"}")))
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Успешный поиск"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидные параметры (limit/offset)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"invalid \\\"limit\\\" field\"}")
+                    )
+            )
     })
     @GetMapping("/users")
     public ResponseEntity<?> listUsers(
@@ -179,8 +188,17 @@ public class UserController {
      */
     @Operation(summary = "Карточка организатора", description = "Получение публичных данных пользователя по его ID.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Пользователь найден"),
-            @ApiResponse(responseCode = "404", description = "Пользователь не найден", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Not found\"}")))
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Пользователь найден"),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Пользователь не найден",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Not found\"}")
+                    )
+            )
     })
     @GetMapping("/users/{id}")
     public ResponseEntity<?> getUser(
@@ -219,8 +237,17 @@ public class UserController {
      */
     @Operation(summary = "Мероприятия конкретного организатора", description = "Возвращает список событий, созданных указанным пользователем.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешное получение списка"),
-            @ApiResponse(responseCode = "404", description = "Пользователь не найден", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"User not found\"}")))
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Успешное получение списка"),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Пользователь не найден",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"User not found\"}")
+                    )
+            )
     })
     @GetMapping("/users/{id}/events")
     public ResponseEntity<?> listUserEvents(
