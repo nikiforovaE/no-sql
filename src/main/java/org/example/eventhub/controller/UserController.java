@@ -1,5 +1,14 @@
 package org.example.eventhub.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.eventhub.dto.UserListResponse;
 import org.example.eventhub.dto.UserRegistrationRequest;
@@ -24,6 +33,7 @@ import java.util.Map;
 /**
  * Контроллер для управления пользователями (организаторами).
  */
+@Tag(name = "Users", description = "Управление пользователями и просмотр организаторов")
 @RestController
 @RequiredArgsConstructor
 public class UserController {
@@ -42,9 +52,38 @@ public class UserController {
      * @param sid     текущий идентификатор сессии из куки (если есть)
      * @return 201 Created при успехе, 400 Bad Request при ошибке валидации, 409 Conflict если пользователь существует
      */
+    @Operation(
+            summary = "Регистрация пользователя",
+            description = "Создает нового пользователя. При успехе создается новая сессия и возвращается кука X-Session-Id."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Пользователь успешно создан",
+                    headers = @Header(name = HttpHeaders.SET_COOKIE, description = "X-Session-Id={sid}; HttpOnly; Path=/; Max-Age={TTL}", schema = @Schema(type = "string")),
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидные данные",
+                    headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновление существующей куки (если была)", schema = @Schema(type = "string")),
+                    content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"invalid \\\"full_name\\\" field\"}"))
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Пользователь уже существует",
+                    headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновление существующей куки (если была)", schema = @Schema(type = "string")),
+                    content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"user already exists\"}"))
+            )
+    })
     @PostMapping("/users")
     public ResponseEntity<?> register(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Данные нового пользователя",
+                    content = @Content(examples = @ExampleObject(value = "{\n    \"full_name\": \"Джон Доу\",\n    \"username\": \"j0hnd0e42\",\n    \"password\": \"svp4_dvp4_str0ng_passw0rd\"\n}"))
+            )
             @RequestBody UserRegistrationRequest request,
+            @Parameter(description = "ID сессии из Cookie")
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (request.getFullName() == null || request.getFullName().isBlank()) {
@@ -88,12 +127,18 @@ public class UserController {
      * @param sid    идентификатор сессии для продления
      * @return 200 OK со списком UserShortInfo
      */
+    @Operation(summary = "Поиск организаторов", description = "Возвращает список пользователей с возможностью поиска по имени и ID. Пароли не возвращаются.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Успешный поиск"),
+            @ApiResponse(responseCode = "400", description = "Невалидные параметры (limit/offset)", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"invalid \\\"limit\\\" field\"}")))
+    })
     @GetMapping("/users")
     public ResponseEntity<?> listUsers(
-            @RequestParam(required = false) String id,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false) Integer offset,
+            @Parameter(description = "Точный ID пользователя") @RequestParam(required = false) String id,
+            @Parameter(description = "Поиск по части имени (например, Иван)") @RequestParam(required = false) String name,
+            @Parameter(description = "Лимит (пагинация)") @RequestParam(required = false) Integer limit,
+            @Parameter(description = "Смещение (пагинация)") @RequestParam(required = false) Integer offset,
+            @Parameter(description = "ID сессии для продления TTL")
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (limit != null && limit < 0)
@@ -132,9 +177,14 @@ public class UserController {
      * @param sid идентификатор сессии из куки
      * @return 200 с данными пользователя или 404, если не найден
      */
+    @Operation(summary = "Карточка организатора", description = "Получение публичных данных пользователя по его ID.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Пользователь найден"),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"Not found\"}")))
+    })
     @GetMapping("/users/{id}")
     public ResponseEntity<?> getUser(
-            @PathVariable("id") String id,
+            @Parameter(description = "ID пользователя", example = "65e9c0b1a2b3c4d5e6f7a8b9") @PathVariable("id") String id,
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         var userOpt = userService.findById(id);
@@ -167,15 +217,21 @@ public class UserController {
      * @param sid    идентификатор сессии из куки
      * @return 200 со списком событий или 404, если пользователь не найден
      */
+    @Operation(summary = "Мероприятия конкретного организатора", description = "Возвращает список событий, созданных указанным пользователем.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Успешное получение списка"),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"User not found\"}")))
+    })
     @GetMapping("/users/{id}/events")
     public ResponseEntity<?> listUserEvents(
-            @PathVariable("id") String userId,
-            @RequestParam(required = false) String category,
-            @RequestParam(name = "price_from", required = false) Integer priceFrom,
-            @RequestParam(name = "price_to", required = false) Integer priceTo,
-            @RequestParam(required = false) String city,
-            @RequestParam(name = "date_from", required = false) String dateFrom,
-            @RequestParam(name = "date_to", required = false) String dateTo,
+            @Parameter(description = "ID организатора") @PathVariable("id") String userId,
+            @Parameter(description = "Категория мероприятия") @RequestParam(required = false) String category,
+            @Parameter(description = "Минимальная цена") @RequestParam(name = "price_from", required = false) Integer priceFrom,
+            @Parameter(description = "Максимальная цена") @RequestParam(name = "price_to", required = false) Integer priceTo,
+            @Parameter(description = "Город") @RequestParam(required = false) String city,
+            @Parameter(description = "Дата начала ОТ (YYYYMMDD)") @RequestParam(name = "date_from", required = false) String dateFrom,
+            @Parameter(description = "Дата начала ДО (YYYYMMDD)") @RequestParam(name = "date_to", required = false) String dateTo,
+            @Parameter(description = "Параметр include (например, reactions)") @RequestParam(required = false) String include,
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (userService.findById(userId).isEmpty()) {
@@ -190,6 +246,10 @@ public class UserController {
         List<Event> events = eventService.findEvents(
                 null, null, category, priceFrom, priceTo, city, dateFrom, dateTo, null, userId, null, null
         );
+
+        if ("reactions".equals(include)) {
+            events.forEach(eventService::applyReactions);
+        }
 
         org.example.eventhub.dto.EventListResponse response = org.example.eventhub.dto.EventListResponse.builder()
                 .events(events)
@@ -206,7 +266,10 @@ public class UserController {
     }
 
     /**
-     * Валидация даты для параметров поиска (формат YYYYMMDD).
+     * Валидирует формат даты поиска (YYYYMMDD).
+     *
+     * @param dateStr строка даты для проверки
+     * @return true, если формат даты неверен
      */
     private boolean isInvalidSearchDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return false;

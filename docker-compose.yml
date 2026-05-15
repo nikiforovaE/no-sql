@@ -16,6 +16,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      cassandra-setup:
+        condition: service_completed_successfully
 
   redis:
     image: redis:7-alpine
@@ -88,6 +90,38 @@ services:
       - mongos
       - shard01-a
       - shard02-a
+
+  cassandra:
+    image: cassandra:latest
+    container_name: ${CASSANDRA_HOSTS}
+    environment:
+      - CASSANDRA_CLUSTER_NAME=IoTCluster
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_SEEDS=${CASSANDRA_HOSTS}
+    env_file: .env.local
+    ports:
+      - ${CASSANDRA_PORT}:${CASSANDRA_PORT}
+    healthcheck:
+      test: [ "CMD-SHELL", "cqlsh -u cassandra -p cassandra -e 'describe keyspaces' || cqlsh -e 'describe keyspaces'" ]
+      interval: 30s
+      timeout: 20s
+      retries: 10
+      start_period: 90s
+
+  cassandra-setup:
+    image: cassandra:latest
+    container_name: cassandra-setup
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    env_file: .env.local
+    volumes:
+      - ./docker/cassandra-init.cql:/init.cql
+      - ./docker/setup.sh:/setup.sh
+    entrypoint: [ "/bin/bash", "/setup.sh" ]
+
 
 volumes:
   config_data:

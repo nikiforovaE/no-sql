@@ -1,0 +1,1252 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sessions",
+      "description": "Управление анонимными сессиями"
+    },
+    {
+      "name": "Users",
+      "description": "Управление пользователями и просмотр организаторов"
+    },
+    {
+      "name": "Events",
+      "description": "Управление событиями и мероприятиями"
+    },
+    {
+      "name": "Health",
+      "description": "Проверка доступности сервиса"
+    },
+    {
+      "name": "Authentication",
+      "description": "Управление аутентификацией пользователя"
+    }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Поиск организаторов",
+        "description": "Возвращает список пользователей с возможностью поиска по имени и ID. Пароли не возвращаются.",
+        "operationId": "listUsers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "Точный ID пользователя",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Поиск по части имени (например, Иван)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Лимит (пагинация)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Смещение (пагинация)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии для продления TTL",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный поиск",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные параметры (limit/offset)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid \"limit\" field"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Регистрация пользователя",
+        "description": "Создает нового пользователя. При успехе создается новая сессия и возвращается кука X-Session-Id.",
+        "operationId": "register",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии из Cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Данные нового пользователя",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegistrationRequest"
+              },
+              "example": {
+                "full_name": "Джон Доу",
+                "username": "j0hnd0e42",
+                "password": "svp4_dvp4_str0ng_passw0rd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь успешно создан",
+            "headers": {
+              "Set-Cookie": {
+                "description": "X-Session-Id={sid}; HttpOnly; Path=/; Max-Age={TTL}",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные данные",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновление существующей куки (если была)",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid \"full_name\" field"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Пользователь уже существует",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновление существующей куки (если была)",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "user already exists"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Создание или обновление сессии",
+        "description": "Если кука отсутствует или сессия истекла — создает новую (201). Если кука есть и сессия активна — обновляет её TTL в Redis (200).",
+        "operationId": "session",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии из Cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Сессия создана (первый визит)",
+            "headers": {
+              "Set-Cookie": {
+                "description": "X-Session-Id={sid}; HttpOnly; Path=/; Max-Age={APP_USER_SESSION_TTL}",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Сессия обновлена (повторный визит)",
+            "headers": {
+              "Set-Cookie": {
+                "description": "X-Session-Id={sid}; HttpOnly; Path=/; Max-Age={APP_USER_SESSION_TTL}",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Поиск мероприятий",
+        "description": "Возвращает список мероприятий с фильтрацией по ID, названию, категории, цене, городу, датам и организатору.",
+        "operationId": "listEvents",
+        "parameters": [
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "description": "Поиск по точному ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "description": "Поиск по подстроке названия",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Фильтр по категории (meetup, concert, exhibition, party, other)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_from",
+            "in": "query",
+            "description": "Минимальная цена",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "price_to",
+            "in": "query",
+            "description": "Максимальная цена (price_to=0 для бесплатных)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "Город проведения",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "description": "Дата начала не раньше (YYYYMMDD)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": 20260314
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "Дата начала не позже (YYYYMMDD)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": 20260314
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "description": "Никнейм организатора",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Лимит пагинации",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 10
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Смещение пагинации",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 0
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Результаты поиска",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Возвращает куку БЕЗ обновления TTL",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка в параметрах запроса",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid \"limit\" parameter"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Создание события",
+        "description": "Доступно только авторизованным пользователям. Создает новое мероприятие и привязывает его к текущему пользователю.",
+        "operationId": "createEvent",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии из Cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d"
+          }
+        ],
+        "requestBody": {
+          "description": "Данные нового события",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCreateRequest"
+              },
+              "example": {
+                "title": "Мой день рождения",
+                "address": "г. Санкт-Петербург, ул. Пушкина, дом Колотушкина",
+                "started_at": "2026-04-01T12:00:00+03:00",
+                "finished_at": "2026-04-01T23:00:00+03:00",
+                "description": "Приглашаю вас отпраздновать мое 30-с-чем-то-летие"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Событие успешно создано",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "12e9c0b1a2b3c3d5e6f7a8b7"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные входные данные",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid \"title\" field"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Событие с таким названием уже существует",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "event already exists"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{id}/like": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Лайк на мероприятие",
+        "description": "Позволяет авторизованному пользователю поставить лайк мероприятию.",
+        "operationId": "likeEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Лайк успешно поставлен",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Event not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{id}/dislike": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Дизлайк на мероприятие",
+        "description": "Позволяет авторизованному пользователю поставить дизлайк мероприятию. При этом лайк (если он был) удаляется.",
+        "operationId": "dislikeEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Дизлайк успешно поставлен",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Удаляет куку (Max-Age=0)",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Event not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Выход из аккаунта",
+        "description": "Удаляет текущую сессию и заставляет клиент удалить Cookie X-Session-Id (Max-Age=0).",
+        "operationId": "logout",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии из Cookie",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Успешный выход",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Удаляет куку (Max-Age=0)",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия не найдена или не авторизована"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Аутентификация пользователя",
+        "description": "Проверяет credentials. При успехе привязывает сессию к пользователю и возвращает Cookie X-Session-Id.",
+        "operationId": "login",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии из Cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d"
+          }
+        ],
+        "requestBody": {
+          "description": "Данные пользователя",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "username": "j0hnd0e42",
+                "password": "svp4_dvp4_str0ng_passw0rd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Успешная аутентификация",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Устанавливает X-Session-Id куку",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверный логин или пароль",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL существующей куки",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid credentials"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{id}": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Получение мероприятия по ID",
+        "operationId": "getEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Мероприятие найдено",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Возвращает куку БЕЗ обновления TTL",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Not found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Редактирование мероприятия",
+        "description": "Доступно только организатору мероприятия. Позволяет изменить категорию, цену и город.",
+        "operationId": "updateEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "ID сессии из Cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Поля для обновления",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventPatchRequest"
+              },
+              "example": {
+                "category": "concert",
+                "price": 1000,
+                "city": "Москва"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Успешное обновление",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные параметры",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid \"category\" field"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не авторизован",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено или вы не организатор",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Not found. Be sure that event exists and you are the organizer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Карточка организатора",
+        "description": "Получение публичных данных пользователя по его ID.",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID пользователя",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "65e9c0b1a2b3c4d5e6f7a8b9"
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Пользователь найден",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/events": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Мероприятия конкретного организатора",
+        "description": "Возвращает список событий, созданных указанным пользователем.",
+        "operationId": "listUserEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID организатора",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Категория мероприятия",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_from",
+            "in": "query",
+            "description": "Минимальная цена",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "price_to",
+            "in": "query",
+            "description": "Максимальная цена",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "Город",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "description": "Дата начала ОТ (YYYYMMDD)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "Дата начала ДО (YYYYMMDD)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешное получение списка",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "User not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health check",
+        "description": "Проверяет работоспособность приложения. Если в запросе передана кука X-Session-Id, возвращает её обратно без обновления TTL в Redis.",
+        "operationId": "health",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "description": "Идентификатор сессии",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "a3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Сервис доступен",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Возвращается только если X-Session-Id был передан в запросе. TTL НЕ обновляется.",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserRegistrationRequest": {
+        "type": "object",
+        "description": "Запрос на регистрацию нового пользователя",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Уникальный никнейм (логин)",
+            "example": "j0hnd0e42"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "Пароль",
+            "example": "svp4_dvp4_str0ng_passw0rd"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Полное имя пользователя",
+            "example": "Джон Доу"
+          }
+        },
+        "required": [
+          "full_name",
+          "password",
+          "username"
+        ]
+      },
+      "EventCreateRequest": {
+        "type": "object",
+        "description": "Запрос на создание нового события",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Название события",
+            "example": "Мой день рождения"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание события",
+            "example": "Приглашаю вас отпраздновать мое 30-с-чем-то-летие"
+          },
+          "address": {
+            "type": "string",
+            "description": "Адрес проведения",
+            "example": "г. Санкт-Петербург, ул. Пушкина, дом Колотушкина"
+          },
+          "started_at": {
+            "type": "string",
+            "description": "Дата и время начала в формате RFC3339",
+            "example": "2026-04-01T12:00:00+03:00"
+          },
+          "finished_at": {
+            "type": "string",
+            "description": "Дата и время окончания в формате RFC3339",
+            "example": "2026-04-01T23:00:00+03:00"
+          }
+        },
+        "required": [
+          "address",
+          "finished_at",
+          "started_at",
+          "title"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "description": "Данные для входа в систему",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Имя пользователя (username)",
+            "example": "j0hnd0e42"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "Пароль пользователя",
+            "example": "svp4_dvp4_str0ng_passw0rd"
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ]
+      },
+      "EventPatchRequest": {
+        "type": "object",
+        "description": "Запрос на частичное обновление мероприятия",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Категория мероприятия",
+            "enum": [
+              "meetup",
+              "concert",
+              "exhibition",
+              "party",
+              "other"
+            ],
+            "example": "concert"
+          },
+          "price": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Цена билета (целое число в абстрактных единицах)",
+            "example": 1000,
+            "minimum": 0
+          },
+          "city": {
+            "type": "string",
+            "description": "Наименование города. При пустом значении - удаляет город из локации мероприятия.",
+            "example": "Москва"
+          }
+        }
+      }
+    }
+  }
+}

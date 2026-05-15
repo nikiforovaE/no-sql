@@ -23,6 +23,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final MongoTemplate mongoTemplate;
     private final UserService userService;
+    private final ReactionService reactionService;
 
     /**
      * Проверяет, занято ли указанное название события.
@@ -133,6 +134,48 @@ public class EventService {
         return mongoTemplate.find(query, Event.class);
     }
 
+    /**
+     * Регистрирует лайк пользователя на мероприятие.
+     *
+     * @param eventId идентификатор мероприятия
+     * @param userId  идентификатор пользователя
+     */
+    public void likeEvent(String eventId, String userId) {
+        Event event = findEvent(eventId);
+        if (event != null) {
+            reactionService.saveReaction(eventId, userId, 1, event.getTitle());
+        }
+    }
+
+    /**
+     * Регистрирует дизлайк пользователя на мероприятие.
+     * Использует $addToSet для дизлайка и $pull для удаления лайка, если он был.
+     *
+     * @param eventId идентификатор мероприятия
+     * @param userId  идентификатор пользователя
+     */
+    public void dislikeEvent(String eventId, String userId) {
+        Event event = findEvent(eventId);
+        if (event != null) {
+            reactionService.saveReaction(eventId, userId, -1, event.getTitle());
+        }
+    }
+
+    /**
+     * Загружает и устанавливает данные о реакциях для заданного события.
+     *
+     * @param event событие, которое необходимо наполнить данными о реакциях
+     */
+    public void applyReactions(Event event) {
+        event.setReactions(reactionService.getReactions(event.getTitle()));
+    }
+
+    /**
+     * Вспомогательный метод для приведения даты из строки поиска к ISO формату.
+     *
+     * @param date строка даты в формате YYYYMMDD
+     * @return строковое представление даты (ISO)
+     */
     private String formatSearchDate(String date) {
         return LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyyMMdd")).toString();
     }
