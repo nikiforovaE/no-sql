@@ -13,8 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.example.eventhub.dto.EventCreateRequest;
 import org.example.eventhub.dto.EventListResponse;
 import org.example.eventhub.dto.EventPatchRequest;
+import org.example.eventhub.dto.ReviewCreateRequest;
 import org.example.eventhub.model.Event;
 import org.example.eventhub.service.EventService;
+import org.example.eventhub.service.ReviewService;
 import org.example.eventhub.service.SessionService;
 import org.example.eventhub.util.CookieProvider;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +43,7 @@ public class EventController {
 
     private final EventService eventService;
     private final SessionService sessionService;
+    private final ReviewService reviewService;
     private final CookieProvider cookieProvider;
 
     /**
@@ -185,6 +188,79 @@ public class EventController {
         eventService.updateEvent(event);
 
         return buildSuccessResponse(HttpStatus.NO_CONTENT, null, sid, true);
+    }
+
+    /**
+     * Оставляет отзыв на мероприятие. Доступно только авторизованным пользователям. Одно мероприятие - один пользователь — один отзыв.
+     *
+     * @param request данные отзыва (комментарий, оценка)
+     * @param sid     идентификатор сессии
+     * @return 201 и ID события, либо ошибка (400, 401, 409)
+     */
+    @Operation(summary = "Отзыв на мероприятие", description = "Доступно только авторизованным пользователям. Одно мероприятие - один пользователь — один отзыв.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Успешное оставлен отзыв",
+                    headers = @Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "Обновляет TTL сессии",
+                            schema = @Schema(type = "string"))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидные параметры",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"invalid \\\"category\\\" field\"}"))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Не авторизован"),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Мероприятие не найдено или вы не организатор",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Not found. Be sure that event exists and you are the organizer\"}")
+                    )
+            )
+    })
+    @PostMapping("/{id}/reviews")
+    public ResponseEntity<?> createReview(
+            @PathVariable("id") String eventId,
+            @RequestBody ReviewCreateRequest request,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        String userId = sessionService.getUserId(sid);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (request.getComment() == null || request.getComment().length() > 300) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"comment\" field", sid);
+        }
+        if (request.getRating() < 1 || request.getRating() > 5) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"rating\" field", sid);
+        }
+
+        Event event = eventService.findEvent(eventId);
+        if (event == null) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+        }
+
+        String reviewId = reviewService.saveReview(
+                eventId,
+                userId,
+                request.getComment(),
+                request.getRating(),
+                event.getTitle()
+        );
+        if (reviewId == null) {
+            return buildErrorResponse(HttpStatus.CONFLICT, "Already exists", sid);
+        }
+
+        return buildSuccessResponse(HttpStatus.CREATED, Map.of("id", reviewId), sid, true);
     }
 
     /**

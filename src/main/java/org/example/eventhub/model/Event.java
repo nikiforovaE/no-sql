@@ -121,4 +121,8 @@ public class Event {
     @Transient
     @Schema(description = "Объект со счетчиками реакций (лайков и дизлайков)")
     private ReactionResponse reactions;
+
+    @Transient
+    @Schema(description = "Статистика отзывов")
+    private org.example.eventhub.dto.ReviewStatsResponse reviews;
 }

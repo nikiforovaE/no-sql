@@ -24,7 +24,11 @@ public class EventService {
     private final MongoTemplate mongoTemplate;
     private final UserService userService;
     private final ReactionService reactionService;
+    private final ReviewService reviewService;
 
+    public void enrichWithReviews(Event event) {
+        event.setReviews(reviewService.getReviewStats(event.getTitle()));
+    }
     /**
      * Проверяет, занято ли указанное название события.
      *
