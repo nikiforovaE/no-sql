@@ -17,3 +17,17 @@ CREATE TABLE IF NOT EXISTS event_reactions
 
 CREATE INDEX IF NOT EXISTS ON event_reactions (like_value);
 CREATE INDEX IF NOT EXISTS ON event_reactions (created_by);
+
+CREATE TABLE IF NOT EXISTS event_reviews
+(
+    id         uuid,
+    event_id   text,
+    rating     tinyint,
+    comment    text,
+    created_at timestamp,
+    created_by text,
+    updated_at timestamp,
+    PRIMARY KEY ((event_id), created_by, created_at)
+) WITH CLUSTERING ORDER BY (created_by ASC, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS ON event_reviews (id);
