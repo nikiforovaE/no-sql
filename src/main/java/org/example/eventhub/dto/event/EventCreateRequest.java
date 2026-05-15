@@ -1,4 +1,4 @@
-package org.example.eventhub.dto;
+package org.example.eventhub.dto.event;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;

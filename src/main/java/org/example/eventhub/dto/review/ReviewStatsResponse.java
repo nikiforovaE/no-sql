@@ -1,4 +1,4 @@
-package org.example.eventhub.dto;
+package org.example.eventhub.dto.review;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -1,4 +1,4 @@
-package org.example.eventhub.dto;
+package org.example.eventhub.dto.event;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
