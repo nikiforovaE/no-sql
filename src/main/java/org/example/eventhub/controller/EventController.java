@@ -10,10 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.example.eventhub.dto.EventCreateRequest;
-import org.example.eventhub.dto.EventListResponse;
-import org.example.eventhub.dto.EventPatchRequest;
-import org.example.eventhub.dto.ReviewCreateRequest;
+import org.example.eventhub.dto.*;
 import org.example.eventhub.model.Event;
 import org.example.eventhub.service.EventService;
 import org.example.eventhub.service.ReviewService;
@@ -226,6 +223,7 @@ public class EventController {
                     )
             )
     })
+
     @PostMapping("/{id}/reviews")
     public ResponseEntity<?> createReview(
             @PathVariable("id") String eventId,
@@ -261,6 +259,30 @@ public class EventController {
         }
 
         return buildSuccessResponse(HttpStatus.CREATED, Map.of("id", reviewId), sid, true);
+    }
+
+    @GetMapping("/{id}/reviews")
+    public ResponseEntity<?> listReviews(
+            @PathVariable("id") String eventId,
+            @RequestParam(value = "limit", defaultValue = "10") Integer limit,
+            @RequestParam(value = "offset", defaultValue = "0") Integer offset,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        if (limit < 0) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"limit\" field", sid);
+        }
+        if (offset < 0) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"offset\" field", sid);
+        }
+
+        Event event = eventService.findEvent(eventId);
+        if (event == null) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+        }
+
+        ReviewListResponse response = reviewService.getReviews(eventId, limit, offset);
+
+        return buildSuccessResponse(HttpStatus.OK, response, sid, false);
     }
 
     /**

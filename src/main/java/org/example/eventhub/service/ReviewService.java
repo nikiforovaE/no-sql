@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.example.eventhub.config.AppConfig;
+import org.example.eventhub.dto.ReviewListResponse;
+import org.example.eventhub.dto.ReviewResponse;
 import org.example.eventhub.dto.ReviewStatsResponse;
 import org.example.eventhub.model.Event;
 import org.springframework.data.cassandra.core.cql.CqlTemplate;
@@ -17,6 +19,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -97,5 +101,38 @@ public class ReviewService {
         redisTemplate.delete(getCacheKey(title));
 
         return reviewId.toString();
+    }
+
+    public ReviewListResponse getReviews(String eventId, Integer limit, Integer offset) {
+        String cql = "SELECT id, event_id, comment, created_by, rating, created_at, updated_at " +
+                "FROM event_reviews WHERE event_id = ?";
+
+        var rows = cqlTemplate.queryForList(cql, eventId);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+        List<ReviewResponse> allReviews = rows.stream()
+                .map(row -> ReviewResponse.builder()
+                        .id(row.get("id").toString())
+                        .event_id((String) row.get("event_id"))
+                        .comment((String) row.get("comment"))
+                        .created_by((String) row.get("created_by"))
+                        .rating(((Byte) row.get("rating")).intValue())
+                        .created_at(((java.time.Instant) row.get("created_at"))
+                                .atZone(ZoneId.of("UTC")).format(formatter))
+                        .updated_at(((java.time.Instant) row.get("updated_at"))
+                                .atZone(ZoneId.of("UTC")).format(formatter))
+                        .build())
+                .toList();
+
+        int fromIndex = Math.min(offset, allReviews.size());
+        int toIndex = Math.min(fromIndex + limit, allReviews.size());
+
+        List<ReviewResponse> pagedReviews = allReviews.subList(fromIndex, toIndex);
+
+        return ReviewListResponse.builder()
+                .reviews(pagedReviews)
+                .count(pagedReviews.size())
+                .build();
     }
 }
