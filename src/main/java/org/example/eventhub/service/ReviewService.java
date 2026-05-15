@@ -1,12 +1,13 @@
 package org.example.eventhub.service;
 
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.example.eventhub.config.AppConfig;
-import org.example.eventhub.dto.ReviewListResponse;
-import org.example.eventhub.dto.ReviewResponse;
-import org.example.eventhub.dto.ReviewStatsResponse;
+import org.example.eventhub.dto.review.ReviewListResponse;
+import org.example.eventhub.dto.review.ReviewResponse;
+import org.example.eventhub.dto.review.ReviewStatsResponse;
 import org.example.eventhub.model.Event;
 import org.springframework.data.cassandra.core.cql.CqlTemplate;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -134,5 +135,27 @@ public class ReviewService {
                 .reviews(pagedReviews)
                 .count(pagedReviews.size())
                 .build();
+    }
+
+    public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
+        String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
+        Row row = cqlTemplate.queryForObject(selectCql, (r, rowNum) -> r, UUID.fromString(reviewId));
+
+        if (row == null) return false;
+
+        if (!row.getString("event_id").equals(eventId) || !row.getString("created_by").equals(userId)) {
+            return false;
+        }
+
+        int finalRating = (rating != null) ? rating : row.getByte("rating");
+        String finalComment = (comment != null) ? comment : row.getString("comment");
+        Instant now = Instant.now();
+
+        String updateCql = "UPDATE event_reviews SET rating = ?, comment = ?, updated_at = ? WHERE event_id = ? AND created_by = ?";
+        cqlTemplate.execute(updateCql, (byte) finalRating, finalComment, now, eventId, userId);
+
+        redisTemplate.delete(getCacheKey(title));
+
+        return true;
     }
 }

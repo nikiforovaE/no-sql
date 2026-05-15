@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.example.eventhub.dto.ReactionResponse;
+import org.example.eventhub.dto.review.ReviewStatsResponse;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
@@ -124,5 +125,5 @@ public class Event {
 
     @Transient
     @Schema(description = "Статистика отзывов")
-    private org.example.eventhub.dto.ReviewStatsResponse reviews;
+    private ReviewStatsResponse reviews;
 }

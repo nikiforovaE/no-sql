@@ -10,7 +10,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.example.eventhub.dto.*;
+import org.example.eventhub.dto.event.EventCreateRequest;
+import org.example.eventhub.dto.event.EventListResponse;
+import org.example.eventhub.dto.event.EventPatchRequest;
+import org.example.eventhub.dto.review.ReviewCreateRequest;
+import org.example.eventhub.dto.review.ReviewListResponse;
+import org.example.eventhub.dto.review.ReviewPatchRequest;
 import org.example.eventhub.model.Event;
 import org.example.eventhub.service.EventService;
 import org.example.eventhub.service.ReviewService;
@@ -283,6 +288,42 @@ public class EventController {
         ReviewListResponse response = reviewService.getReviews(eventId, limit, offset);
 
         return buildSuccessResponse(HttpStatus.OK, response, sid, false);
+    }
+
+    @PatchMapping("/{id}/reviews/{review_id}")
+    public ResponseEntity<?> updateReview(
+            @PathVariable("id") String eventId,
+            @PathVariable("review_id") String reviewId,
+            @RequestBody ReviewPatchRequest request,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        String userId = sessionService.getUserId(sid);
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (request.getComment() != null && request.getComment().length() > 300) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"comment\" field", sid);
+        }
+        if (request.getRating() != null && (request.getRating() < 1 || request.getRating() > 5)) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"rating\" field", sid);
+        }
+
+        Event event = eventService.findEvent(eventId);
+        if (event == null) return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+
+        boolean updated = reviewService.updateReview(
+                eventId,
+                reviewId,
+                userId,
+                request.getRating(),
+                request.getComment(),
+                event.getTitle()
+        );
+
+        if (!updated) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+        }
+
+        return buildSuccessResponse(HttpStatus.NO_CONTENT, null, sid, true);
     }
 
     /**

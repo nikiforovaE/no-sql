@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.eventhub.dto.UserListResponse;
 import org.example.eventhub.dto.UserRegistrationRequest;
+import org.example.eventhub.dto.event.EventListResponse;
 import org.example.eventhub.model.Event;
 import org.example.eventhub.model.User;
 import org.example.eventhub.service.EventService;
@@ -278,7 +279,7 @@ public class UserController {
             events.forEach(eventService::applyReactions);
         }
 
-        org.example.eventhub.dto.EventListResponse response = org.example.eventhub.dto.EventListResponse.builder()
+        EventListResponse response = EventListResponse.builder()
                 .events(events)
                 .count(events.size())
                 .build();
