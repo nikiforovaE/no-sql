@@ -42,7 +42,7 @@ public class ReviewService {
     /**
      * Получение статистики отзывов (из кэша или с пересчетом)
      */
-    public ReviewStatsResponse getReviewStats(String title) {
+    public ReviewStatsResponse getReviewStats(String title, String eventId) {
         if (title == null) return new ReviewStatsResponse(0, 0.0);
 
         String cacheKey = getCacheKey(title);
@@ -53,6 +53,12 @@ public class ReviewService {
                 String countStr = (String) entries.get("count");
                 String ratingStr = (String) entries.get("rating");
                 if (countStr != null && ratingStr != null) {
+                    String checkCql = "SELECT count(*) FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
+                    Long currentEventReviewsCount = cqlTemplate.queryForObject(checkCql, Long.class, eventId);
+                    if (currentEventReviewsCount == null || currentEventReviewsCount == 0) {
+                        return new ReviewStatsResponse(0, 0.0);
+                    }
+
                     return new ReviewStatsResponse(Integer.parseInt(countStr), Double.parseDouble(ratingStr));
                 }
             }
@@ -78,7 +84,7 @@ public class ReviewService {
             double totalSum = 0.0;
 
             for (String id : eventIds) {
-                String cql = "SELECT rating FROM event_reviews WHERE event_id = ?";
+                String cql = "SELECT rating FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
                 List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, id);
 
                 if (!ratings.isEmpty()) {
@@ -163,7 +169,7 @@ public class ReviewService {
      */
     public ReviewListResponse getReviews(String eventId, Integer limit, Integer offset) {
         String cql = "SELECT id, event_id, comment, created_by, rating, created_at, updated_at " +
-                "FROM event_reviews WHERE event_id = ?";
+                "FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
 
         List<Map<String, Object>> rows = cqlTemplate.queryForList(cql, eventId);
 
@@ -195,15 +201,21 @@ public class ReviewService {
                                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                     }
 
+                    String resEventId = row.get("event_id") != null ? row.get("event_id").toString() : eventId;
+
                     return ReviewResponse.builder()
                             .id(rawId != null ? rawId.toString() : "")
-                            .event_id((String) row.get("event_id"))
+                            .event_id(resEventId)
                             .comment((String) row.get("comment"))
                             .created_by((String) row.get("created_by"))
                             .rating(row.get("rating") != null ? ((Number) row.get("rating")).intValue() : 0)
                             .created_at(createdAtStr)
                             .updated_at(updatedAtStr)
                             .build();
+                })
+                .sorted((r1, r2) -> {
+                    if (r1.getCreated_at() == null || r2.getCreated_at() == null) return 0;
+                    return r2.getCreated_at().compareTo(r1.getCreated_at());
                 })
                 .toList();
 
