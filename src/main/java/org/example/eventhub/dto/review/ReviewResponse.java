@@ -25,7 +25,7 @@ public class ReviewResponse {
     private String comment;
 
     @Schema(description = "Оценка от 1 до 5", example = "5")
-    private Integer rating;
+    private int rating;
 
     @JsonProperty("created_at")
     @Schema(description = "Дата создания (RFC3339)", example = "2026-03-14T14:59:32+03:00")

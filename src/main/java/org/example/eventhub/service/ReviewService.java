@@ -6,11 +6,7 @@ import org.example.eventhub.config.AppConfig;
 import org.example.eventhub.dto.review.ReviewListResponse;
 import org.example.eventhub.dto.review.ReviewResponse;
 import org.example.eventhub.dto.review.ReviewStatsResponse;
-import org.example.eventhub.model.Event;
 import org.springframework.data.cassandra.core.cql.CqlTemplate;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -31,8 +27,9 @@ public class ReviewService {
 
     private final CqlTemplate cqlTemplate;
     private final StringRedisTemplate redisTemplate;
-    private final MongoTemplate mongoTemplate;
     private final AppConfig appConfig;
+
+    private final DateTimeFormatter rfcFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 
     private String getCacheKey(String title) {
         String hash = DigestUtils.md5Hex(title);
@@ -58,50 +55,33 @@ public class ReviewService {
                 }
             }
         } catch (Exception ignored) {
-            return new ReviewStatsResponse(0, 0.0);
         }
 
-        ReviewStatsResponse stats = recalculateAndCache(title);
-        return stats != null ? stats : new ReviewStatsResponse(0, 0.0);
+        return recalculateAndCache(title, eventId);
     }
 
     /**
      * Пересчет статистики отзывов по названию мероприятия и обновление Redis
      */
-    private ReviewStatsResponse recalculateAndCache(String title) {
-        if (title == null) {
+    private ReviewStatsResponse recalculateAndCache(String title, String eventId) {
+        if (title == null || eventId == null) {
             return new ReviewStatsResponse(0, 0.0);
         }
 
         String cacheKey = getCacheKey(title);
-
-        List<String> eventIds = mongoTemplate.find(
-                        Query.query(Criteria.where("title").is(title)), Event.class)
-                .stream().map(Event::getId).toList();
-
         ReviewStatsResponse stats = new ReviewStatsResponse(0, 0.0);
 
-        if (!eventIds.isEmpty()) {
-            int totalCount = 0;
-            double totalSum = 0.0;
-
-            for (String id : eventIds) {
-                String cql = "SELECT rating FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
-                try {
-                    List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, id);
-                    if (ratings != null && !ratings.isEmpty()) {
-                        totalCount += ratings.size();
-                        totalSum += ratings.stream().mapToDouble(Byte::doubleValue).sum();
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
-            if (totalCount > 0) {
+        String cql = "SELECT rating FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
+        try {
+            List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, eventId);
+            if (ratings != null && !ratings.isEmpty()) {
+                int totalCount = ratings.size();
+                double totalSum = ratings.stream().mapToDouble(Byte::doubleValue).sum();
                 double avg = totalSum / totalCount;
                 double roundedAvg = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
                 stats = new ReviewStatsResponse(totalCount, roundedAvg);
             }
+        } catch (Exception ignored) {
         }
 
         saveToRedis(cacheKey, stats);
@@ -116,7 +96,9 @@ public class ReviewService {
             hashModel.put("rating", String.valueOf(stats.getRating()));
 
             redisTemplate.opsForHash().putAll(key, hashModel);
-            redisTemplate.expire(key, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
+            if (appConfig.getEventReviewsTtl() != null) {
+                redisTemplate.expire(key, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
+            }
         } catch (Exception ignored) {
         }
     }
@@ -137,7 +119,7 @@ public class ReviewService {
         String insertCql = "INSERT INTO event_reviews (id, event_id, created_by, rating, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
         cqlTemplate.execute(insertCql, reviewId, eventId, userId, (byte) rating, comment, now, now);
 
-        recalculateAndCache(title);
+        recalculateAndCache(title, eventId);
 
         return reviewId.toString();
     }
@@ -161,7 +143,7 @@ public class ReviewService {
         String updateCql = "UPDATE event_reviews SET rating = ?, comment = ?, updated_at = ? WHERE event_id = ? AND created_by = ?";
         cqlTemplate.execute(updateCql, finalRating, finalComment, now, eventId, userId);
 
-        recalculateAndCache(title);
+        recalculateAndCache(title, eventId);
 
         return true;
     }
@@ -191,15 +173,17 @@ public class ReviewService {
                     String createdAtStr = "";
                     String updatedAtStr = "";
 
+                    ZoneId systemZone = ZoneId.systemDefault();
+
                     if (rawCreatedAt instanceof Instant) {
                         createdAtStr = ((Instant) rawCreatedAt)
-                                .atZone(java.util.TimeZone.getDefault().toZoneId())
-                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                                .atZone(systemZone)
+                                .format(rfcFormatter);
                     }
                     if (rawUpdatedAt instanceof Instant) {
                         updatedAtStr = ((Instant) rawUpdatedAt)
-                                .atZone(java.util.TimeZone.getDefault().toZoneId())
-                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                                .atZone(systemZone)
+                                .format(rfcFormatter);
                     }
 
                     String resEventId = row.get("event_id") != null ? row.get("event_id").toString() : eventId;

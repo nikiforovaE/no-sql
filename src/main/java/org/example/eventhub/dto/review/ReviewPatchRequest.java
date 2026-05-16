@@ -13,7 +13,7 @@ public class ReviewPatchRequest {
             minimum = "1",
             maximum = "5"
     )
-    private Integer rating;
+    private int rating;
 
     @Schema(
             description = "Новый комментарий (макс. 300 символов). Только если нужно изменить.",
