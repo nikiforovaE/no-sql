@@ -43,8 +43,8 @@ public class ReviewService {
      * Получение статистики отзывов (из кэша или с пересчетом)
      */
     public ReviewStatsResponse getReviewStats(String title, String eventId) {
-        if (title == null) return new ReviewStatsResponse(0, 0.0);
-
+        if (title == null)
+            return new ReviewStatsResponse(0, 0.0);
         String cacheKey = getCacheKey(title);
 
         try {
@@ -53,18 +53,11 @@ public class ReviewService {
                 String countStr = (String) entries.get("count");
                 String ratingStr = (String) entries.get("rating");
                 if (countStr != null && ratingStr != null) {
-                    String checkCql = "SELECT count(*) FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
-                    Long currentEventReviewsCount = cqlTemplate.queryForObject(checkCql, Long.class, eventId);
-                    if (currentEventReviewsCount == null || currentEventReviewsCount == 0) {
-                        return new ReviewStatsResponse(0, 0.0);
-                    }
-
                     return new ReviewStatsResponse(Integer.parseInt(countStr), Double.parseDouble(ratingStr));
                 }
             }
         } catch (Exception ignored) {
         }
-
         return recalculateAndCache(title);
     }
 
