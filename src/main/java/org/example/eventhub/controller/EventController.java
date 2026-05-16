@@ -436,13 +436,15 @@ public class EventController {
 
         List<Event> events = eventService.findEvents(id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, null, limit, offset);
 
+        long totalCount = eventService.countEvents(id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, null);
+
         if (include != null && !include.isBlank()) {
             events.forEach(e -> enrichEvent(e, include));
         }
 
         EventListResponse responseBody = EventListResponse.builder()
                 .events(events)
-                .count(events.size())
+                .count((int) totalCount)
                 .build();
 
         return buildSuccessResponse(HttpStatus.OK, responseBody, sid, false);
