@@ -1,6 +1,5 @@
 package org.example.eventhub.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.example.eventhub.config.AppConfig;
@@ -21,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,7 +32,6 @@ public class ReviewService {
     private final CqlTemplate cqlTemplate;
     private final StringRedisTemplate redisTemplate;
     private final MongoTemplate mongoTemplate;
-    private final ObjectMapper objectMapper;
     private final AppConfig appConfig;
 
     private String getCacheKey(String title) {
@@ -49,9 +48,13 @@ public class ReviewService {
         String cacheKey = getCacheKey(title);
 
         try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null) {
-                return objectMapper.readValue(cached, ReviewStatsResponse.class);
+            Map<Object, Object> entries = redisTemplate.opsForHash().entries(cacheKey);
+            if (entries != null && !entries.isEmpty()) {
+                String countStr = (String) entries.get("count");
+                String ratingStr = (String) entries.get("rating");
+                if (countStr != null && ratingStr != null) {
+                    return new ReviewStatsResponse(Integer.parseInt(countStr), Double.parseDouble(ratingStr));
+                }
             }
         } catch (Exception ignored) {
         }
@@ -100,8 +103,12 @@ public class ReviewService {
         try {
             redisTemplate.delete(key);
 
-            String json = objectMapper.writeValueAsString(stats);
-            redisTemplate.opsForValue().set(key, json, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
+            Map<String, String> hashModel = new HashMap<>();
+            hashModel.put("count", String.valueOf(stats.getCount()));
+            hashModel.put("rating", String.valueOf(stats.getRating()));
+
+            redisTemplate.opsForHash().putAll(key, hashModel);
+            redisTemplate.expire(key, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
         } catch (Exception ignored) {
         }
     }
