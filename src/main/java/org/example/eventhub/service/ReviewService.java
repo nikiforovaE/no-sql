@@ -44,8 +44,7 @@ public class ReviewService {
      * Получение статистики отзывов
      */
     public ReviewStatsResponse getReviewStats(String title) {
-        if (title == null)
-            return new ReviewStatsResponse(0, 0.0);
+        if (title == null) return new ReviewStatsResponse(0, 0.0);
 
         String cacheKey = getCacheKey(title);
 
@@ -74,15 +73,15 @@ public class ReviewService {
         if (!eventIds.isEmpty()) {
             String ids = String.join("','", eventIds);
             String cql = "SELECT rating FROM event_reviews WHERE event_id IN ('" + ids + "')";
-            List<Integer> ratings = cqlTemplate.queryForList(cql, Integer.class);
+
+            List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class);
 
             if (!ratings.isEmpty()) {
                 int count = ratings.size();
-                double sum = ratings.stream().mapToDouble(Integer::doubleValue).sum();
+                double sum = ratings.stream().mapToDouble(Byte::doubleValue).sum();
                 double avg = sum / count;
 
                 double roundedAvg = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
-
                 stats = new ReviewStatsResponse(count, roundedAvg);
             }
         }
@@ -93,6 +92,7 @@ public class ReviewService {
                     Duration.ofSeconds(appConfig.getEventReviewsTtl()));
         } catch (Exception ignored) {
         }
+
         return stats;
     }
 
@@ -100,9 +100,9 @@ public class ReviewService {
      * Сохранение нового отзыва
      */
     public String saveReview(String eventId, String userId, String comment, int rating, String title) {
-        String checkCql = "SELECT id FROM event_reviews WHERE event_id = ? AND created_by = ?";
-        List<UUID> existing = cqlTemplate.queryForList(checkCql, UUID.class, eventId, userId);
-        if (!existing.isEmpty()) {
+        String checkCql = "SELECT count(*) FROM event_reviews WHERE event_id = ? AND created_by = ?";
+        Long count = cqlTemplate.queryForObject(checkCql, Long.class, eventId, userId);
+        if (count != null && count > 0) {
             return null;
         }
 
@@ -117,12 +117,35 @@ public class ReviewService {
         return reviewId.toString();
     }
 
+    public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
+        String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
+        List<Map<String, Object>> results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
+
+        if (results.isEmpty()) return false;
+
+        Map<String, Object> row = results.get(0);
+
+        if (!row.get("event_id").equals(eventId) || !row.get("created_by").equals(userId)) {
+            return false;
+        }
+
+        byte finalRating = (rating != null) ? rating.byteValue() : (Byte) row.get("rating");
+        String finalComment = (comment != null) ? comment : (String) row.get("comment");
+        Instant now = Instant.now();
+
+        String updateCql = "UPDATE event_reviews SET rating = ?, comment = ?, updated_at = ? WHERE event_id = ? AND created_by = ?";
+        cqlTemplate.execute(updateCql, finalRating, finalComment, now, eventId, userId);
+
+        recalculateAndCache(title);
+
+        return true;
+    }
+
     public ReviewListResponse getReviews(String eventId, Integer limit, Integer offset) {
         String cql = "SELECT id, event_id, comment, created_by, rating, created_at, updated_at " +
                 "FROM event_reviews WHERE event_id = ?";
 
         var rows = cqlTemplate.queryForList(cql, eventId);
-
         DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
         List<ReviewResponse> allReviews = rows.stream()
@@ -146,30 +169,5 @@ public class ReviewService {
                 .reviews(pagedReviews)
                 .count(pagedReviews.size())
                 .build();
-    }
-
-    public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
-        String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
-        List<Map<String, Object>> results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
-
-        if (results.isEmpty())
-            return false;
-
-        Map<String, Object> row = results.get(0);
-
-        if (!row.get("event_id").equals(eventId) || !row.get("created_by").equals(userId)) {
-            return false;
-        }
-
-        byte finalRating = (rating != null) ? rating.byteValue() : (Byte) row.get("rating");
-        String finalComment = (comment != null) ? comment : (String) row.get("comment");
-        Instant now = Instant.now();
-
-        String updateCql = "UPDATE event_reviews SET rating = ?, comment = ?, updated_at = ? WHERE event_id = ? AND created_by = ?";
-        cqlTemplate.execute(updateCql, finalRating, finalComment, now, eventId, userId);
-
-        recalculateAndCache(title);
-
-        return true;
     }
 }
