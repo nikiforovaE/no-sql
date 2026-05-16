@@ -14,10 +14,22 @@ import lombok.Data;
 @Schema(description = "Запрос на оставление отзыва на мероприятие")
 public class ReviewCreateRequest {
 
+    @Schema(
+            description = "Комментарий к отзыву (любые символы, максимум 300)",
+            example = "Великолепный спектакль! Идите, даже не думайте!",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
     @NotBlank
     @Size(max = 300)
     private String comment;
 
+    @Schema(
+            description = "Оценка от 1 до 5 (только целые числа)",
+            example = "5",
+            minimum = "1",
+            maximum = "5",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
     @Min(1)
     @Max(5)
     private int rating;
