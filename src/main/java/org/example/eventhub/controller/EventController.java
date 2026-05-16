@@ -308,7 +308,9 @@ public class EventController {
         }
 
         Event event = eventService.findEvent(eventId);
-        if (event == null) return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+        if (event == null)
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
+
 
         boolean updated = reviewService.updateReview(
                 eventId,

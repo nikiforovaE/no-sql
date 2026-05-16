@@ -144,20 +144,24 @@ public class ReviewService {
 
     public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
         String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
-        Row row = cqlTemplate.queryForObject(selectCql, (r, rowNum) -> r, UUID.fromString(reviewId));
+        var results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
 
-        if (row == null) return false;
-
-        if (!row.getString("event_id").equals(eventId) || !row.getString("created_by").equals(userId)) {
+        if (results.isEmpty()) {
             return false;
         }
 
-        int finalRating = (rating != null) ? rating : row.getByte("rating");
-        String finalComment = (comment != null) ? comment : row.getString("comment");
-        Instant now = Instant.now();
+        var row = results.get(0);
+
+        if (!row.get("event_id").equals(eventId) || !row.get("created_by").equals(userId)) {
+            return false;
+        }
+
+        byte finalRating = (rating != null) ? rating.byteValue() : (byte) row.get("rating");
+        String finalComment = (comment != null) ? comment : (String) row.get("comment");
+        java.time.Instant now = java.time.Instant.now();
 
         String updateCql = "UPDATE event_reviews SET rating = ?, comment = ?, updated_at = ? WHERE event_id = ? AND created_by = ?";
-        cqlTemplate.execute(updateCql, (byte) finalRating, finalComment, now, eventId, userId);
+        cqlTemplate.execute(updateCql, finalRating, finalComment, now, eventId, userId);
 
         redisTemplate.delete(getCacheKey(title));
 

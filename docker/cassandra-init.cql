@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS event_reactions
 CREATE INDEX IF NOT EXISTS ON event_reactions (like_value);
 CREATE INDEX IF NOT EXISTS ON event_reactions (created_by);
 
+USE ${CASSANDRA_KEYSPACE};
+
 CREATE TABLE IF NOT EXISTS event_reviews
 (
     id         uuid,
@@ -27,7 +29,7 @@ CREATE TABLE IF NOT EXISTS event_reviews
     created_at timestamp,
     created_by text,
     updated_at timestamp,
-    PRIMARY KEY ((event_id), created_by, created_at)
-) WITH CLUSTERING ORDER BY (created_by ASC, created_at DESC);
+    PRIMARY KEY ((event_id), created_by)
+);
 
 CREATE INDEX IF NOT EXISTS ON event_reviews (id);
