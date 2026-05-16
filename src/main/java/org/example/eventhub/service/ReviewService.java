@@ -74,18 +74,23 @@ public class ReviewService {
         ReviewStatsResponse stats = new ReviewStatsResponse(0, 0.0);
 
         if (!eventIds.isEmpty()) {
-            String ids = String.join("','", eventIds);
-            String cql = "SELECT rating FROM event_reviews WHERE event_id IN ('" + ids + "')";
+            int totalCount = 0;
+            double totalSum = 0.0;
 
-            List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class);
+            for (String id : eventIds) {
+                String cql = "SELECT rating FROM event_reviews WHERE event_id = ?";
+                List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, id);
 
-            if (!ratings.isEmpty()) {
-                int count = ratings.size();
-                double sum = ratings.stream().mapToDouble(Byte::doubleValue).sum();
-                double avg = sum / count;
+                if (ratings != null && !ratings.isEmpty()) {
+                    totalCount += ratings.size();
+                    totalSum += ratings.stream().mapToDouble(Byte::doubleValue).sum();
+                }
+            }
 
+            if (totalCount > 0) {
+                double avg = totalSum / totalCount;
                 double roundedAvg = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
-                stats = new ReviewStatsResponse(count, roundedAvg);
+                stats = new ReviewStatsResponse(totalCount, roundedAvg);
             }
         }
 
@@ -96,6 +101,8 @@ public class ReviewService {
 
     private void saveToRedis(String key, ReviewStatsResponse stats) {
         try {
+            redisTemplate.delete(key);
+
             String json = objectMapper.writeValueAsString(stats);
             redisTemplate.opsForValue().set(key, json, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
         } catch (Exception ignored) {

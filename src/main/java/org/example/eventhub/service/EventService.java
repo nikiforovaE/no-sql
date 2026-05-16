@@ -27,7 +27,12 @@ public class EventService {
     private final ReviewService reviewService;
 
     public void enrichWithReviews(Event event) {
-        event.setReviews(reviewService.getReviewStats(event.getTitle()));
+        if (event == null || event.getTitle() == null) return;
+        var stats = reviewService.getReviewStats(event.getTitle());
+
+        if (stats != null) {
+            event.setReviews(stats);
+        }
     }
     /**
      * Проверяет, занято ли указанное название события.
