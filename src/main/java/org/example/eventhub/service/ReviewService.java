@@ -35,9 +35,6 @@ public class ReviewService {
     private final ObjectMapper objectMapper;
     private final AppConfig appConfig;
 
-    private static final DateTimeFormatter ISO_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX").withZone(ZoneOffset.UTC);
-
     private String getCacheKey(String title) {
         String hash = DigestUtils.md5Hex(title);
         return "event:" + hash + ":reviews";
@@ -81,7 +78,7 @@ public class ReviewService {
                 String cql = "SELECT rating FROM event_reviews WHERE event_id = ?";
                 List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, id);
 
-                if (ratings != null && !ratings.isEmpty()) {
+                if (!ratings.isEmpty()) {
                     totalCount += ratings.size();
                     totalSum += ratings.stream().mapToDouble(Byte::doubleValue).sum();
                 }
@@ -134,16 +131,13 @@ public class ReviewService {
      * Обновление существующего отзыва
      */
     public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
-        String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
-        List<Map<String, Object>> results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
+        String selectCql = "SELECT id, rating, comment FROM event_reviews WHERE event_id = ? AND created_by = ?";
+        List<Map<String, Object>> results = cqlTemplate.queryForList(selectCql, eventId, userId);
 
         if (results.isEmpty()) return false;
 
-        Map<String, Object> row = results.get(0);
-
-        if (!row.get("event_id").equals(eventId) || !row.get("created_by").equals(userId)) {
-            return false;
-        }
+        Map<String, Object> row = results.getFirst();
+        if (!row.get("id").toString().equals(reviewId)) return false;
 
         byte finalRating = (rating != null) ? rating.byteValue() : ((Number) row.get("rating")).byteValue();
         String finalComment = (comment != null) ? comment : (String) row.get("comment");
@@ -166,7 +160,7 @@ public class ReviewService {
 
         List<Map<String, Object>> rows = cqlTemplate.queryForList(cql, eventId);
 
-        if (rows == null || rows.isEmpty()) {
+        if (rows.isEmpty()) {
             return ReviewListResponse.builder()
                     .reviews(List.of())
                     .count(0)
@@ -179,14 +173,29 @@ public class ReviewService {
                     Object rawCreatedAt = row.get("created_at");
                     Object rawUpdatedAt = row.get("updated_at");
 
+                    String createdAtStr = "";
+                    String updatedAtStr = "";
+
+                    if (rawCreatedAt instanceof Instant) {
+                        createdAtStr = ((Instant) rawCreatedAt)
+                                .atOffset(ZoneOffset.UTC)
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                    }
+
+                    if (rawUpdatedAt instanceof Instant) {
+                        updatedAtStr = ((Instant) rawUpdatedAt)
+                                .atOffset(ZoneOffset.UTC)
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                    }
+
                     return ReviewResponse.builder()
                             .id(rawId != null ? rawId.toString() : "")
                             .event_id((String) row.get("event_id"))
                             .comment((String) row.get("comment"))
                             .created_by((String) row.get("created_by"))
                             .rating(row.get("rating") != null ? ((Number) row.get("rating")).intValue() : 0)
-                            .created_at(rawCreatedAt instanceof Instant ? ISO_FORMATTER.format((Instant) rawCreatedAt) : "")
-                            .updated_at(rawUpdatedAt instanceof Instant ? ISO_FORMATTER.format((Instant) rawUpdatedAt) : "")
+                            .created_at(createdAtStr)
+                            .updated_at(updatedAtStr)
                             .build();
                 })
                 .toList();
@@ -198,7 +207,7 @@ public class ReviewService {
 
         return ReviewListResponse.builder()
                 .reviews(pagedReviews)
-                .count(pagedReviews.size())
+                .count(allReviews.size())
                 .build();
     }
 }
