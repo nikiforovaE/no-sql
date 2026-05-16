@@ -132,12 +132,17 @@ public class UserController {
     @ApiResponses(value = {
             @ApiResponse(
                     responseCode = "200",
-                    description = "Успешный поиск"),
+                    description = "Успешный поиск",
+                    content = @Content(
+                            schema = @Schema(implementation = UserListResponse.class)
+                    )
+            ),
             @ApiResponse(
                     responseCode = "400",
                     description = "Невалидные параметры (limit/offset)",
                     content = @Content(
                             mediaType = "application/json",
+                            schema = @Schema(implementation = Map.class),
                             examples = @ExampleObject(value = "{\"message\": \"invalid \\\"limit\\\" field\"}")
                     )
             )
@@ -181,66 +186,20 @@ public class UserController {
     }
 
     /**
-     * Получает подробные данные об организаторе.
-     *
-     * @param id  идентификатор пользователя из пути
-     * @param sid идентификатор сессии из куки
-     * @return 200 с данными пользователя или 404, если не найден
-     */
-    @Operation(summary = "Карточка организатора", description = "Получение публичных данных пользователя по его ID.")
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Пользователь найден"),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Пользователь не найден",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(value = "{\"message\": \"Not found\"}")
-                    )
-            )
-    })
-    @GetMapping("/users/{id}")
-    public ResponseEntity<?> getUser(
-            @Parameter(description = "ID пользователя", example = "65e9c0b1a2b3c4d5e6f7a8b9") @PathVariable("id") String id,
-            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
-    ) {
-        var userOpt = userService.findById(id);
-
-        if (userOpt.isEmpty()) {
-            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found", sid);
-        }
-
-        User user = userOpt.get();
-
-        UserListResponse.UserInfo responseBody = UserListResponse.UserInfo.builder()
-                .id(user.getId())
-                .full_name(user.getFullName())
-                .username(user.getUsername())
-                .build();
-
-        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
-        if (sid != null && sessionService.exists(sid)) {
-            sessionService.updateSession(sid);
-            builder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
-        }
-
-        return builder.body(responseBody);
-    }
-
-    /**
      * Возвращает список всех мероприятий конкретного организатора
      *
      * @param userId идентификатор пользователя из пути
      * @param sid    идентификатор сессии из куки
      * @return 200 со списком событий или 404, если пользователь не найден
      */
-    @Operation(summary = "Мероприятия конкретного организатора", description = "Возвращает список событий, созданных указанным пользователем.")
+    @Operation(summary = "Мероприятия конкретного организатора",
+            description = "Возвращает список событий, созданных указанным пользователем.")
     @ApiResponses(value = {
             @ApiResponse(
                     responseCode = "200",
-                    description = "Успешное получение списка"),
+                    description = "Успешное получение списка",
+                    content = @Content(schema = @Schema(implementation = EventListResponse.class))
+            ),
             @ApiResponse(
                     responseCode = "404",
                     description = "Пользователь не найден",
@@ -259,7 +218,7 @@ public class UserController {
             @Parameter(description = "Город") @RequestParam(required = false) String city,
             @Parameter(description = "Дата начала ОТ (YYYYMMDD)") @RequestParam(name = "date_from", required = false) String dateFrom,
             @Parameter(description = "Дата начала ДО (YYYYMMDD)") @RequestParam(name = "date_to", required = false) String dateTo,
-            @Parameter(description = "Параметр include (например, reactions)") @RequestParam(required = false) String include,
+            @Parameter(description = "Параметр include", example = "reactions,reviews") @RequestParam(required = false) String include,
             @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
     ) {
         if (userService.findById(userId).isEmpty()) {
@@ -308,6 +267,58 @@ public class UserController {
         } catch (Exception e) {
             return true;
         }
+    }
+
+    /**
+     * Получает подробные данные об организаторе.
+     *
+     * @param id  идентификатор пользователя из пути
+     * @param sid идентификатор сессии из куки
+     * @return 200 с данными пользователя или 404, если не найден
+     */
+    @Operation(summary = "Карточка организатора", description = "Получение публичных данных пользователя по его ID.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Пользователь найден",
+                    content = @Content(
+                            schema = @Schema(implementation = UserListResponse.UserInfo.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Пользователь не найден",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Not found\"}")
+                    )
+            )
+    })
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUser(
+            @Parameter(description = "ID пользователя", example = "65e9c0b1a2b3c4d5e6f7a8b9") @PathVariable("id") String id,
+            @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid
+    ) {
+        var userOpt = userService.findById(id);
+
+        if (userOpt.isEmpty()) {
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found", sid);
+        }
+
+        User user = userOpt.get();
+
+        UserListResponse.UserInfo responseBody = UserListResponse.UserInfo.builder()
+                .id(user.getId())
+                .full_name(user.getFullName())
+                .username(user.getUsername())
+                .build();
+
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+        if (sid != null && sessionService.exists(sid)) {
+            sessionService.updateSession(sid);
+            builder.header(HttpHeaders.SET_COOKIE, cookieProvider.createSessionCookie(sid).toString());
+        }
+
+        return builder.body(responseBody);
     }
 
     /**
