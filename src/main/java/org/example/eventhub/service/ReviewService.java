@@ -193,12 +193,12 @@ public class ReviewService {
 
                     if (rawCreatedAt instanceof Instant) {
                         createdAtStr = ((Instant) rawCreatedAt)
-                                .atOffset(ZoneOffset.UTC)
+                                .atZone(java.util.TimeZone.getDefault().toZoneId())
                                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                     }
                     if (rawUpdatedAt instanceof Instant) {
                         updatedAtStr = ((Instant) rawUpdatedAt)
-                                .atOffset(ZoneOffset.UTC)
+                                .atZone(java.util.TimeZone.getDefault().toZoneId())
                                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                     }
 
