@@ -290,6 +290,11 @@ public class EventController {
         return buildSuccessResponse(HttpStatus.OK, response, sid, false);
     }
 
+    @Operation(summary = "Изменить отзыв", description = "Доступно только владельцу отзыва. Изменяет рейтинг и комментарий.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Успешно обновлено"),
+            @ApiResponse(responseCode = "404", description = "Отзыв или мероприятие не найдено")
+    })
     @PatchMapping("/{id}/reviews/{review_id}")
     public ResponseEntity<?> updateReview(
             @PathVariable("id") String eventId,
@@ -378,15 +383,17 @@ public class EventController {
      * @param dateTo    конец (YYYYMMDD)
      * @return 200 со списком событий и количеством
      */
-    @Operation(summary = "Поиск мероприятий", description = "Возвращает список мероприятий с фильтрацией по ID, названию, категории, цене, городу, датам и организатору.")
+    @Operation(summary = "Поиск мероприятий",
+            description = "Возвращает список мероприятий с фильтрацией. В параметр include можно передать 'reactions,reviews' через запятую.")
     @ApiResponses(value = {
             @ApiResponse(
                     responseCode = "200",
                     description = "Результаты поиска",
                     headers = @Header(
                             name = HttpHeaders.SET_COOKIE,
-                            description = "Возвращает куку БЕЗ обновления TTL",
-                            schema = @Schema(type = "string"))
+                            description = "Возвращает ту же куку, что была в запросе (без обновления TTL)",
+                            schema = @Schema(type = "string")),
+                    content = @Content(schema = @Schema(implementation = EventListResponse.class))
             ),
             @ApiResponse(
                     responseCode = "400",
@@ -397,6 +404,7 @@ public class EventController {
                     )
             )
     })
+
     @GetMapping
     public ResponseEntity<?> listEvents(@RequestParam(required = false) String include,
                                         @Parameter(description = "Поиск по точному ID") @RequestParam(required = false) String id, @Parameter(description = "Поиск по подстроке названия") @RequestParam(required = false) String title, @Parameter(description = "Фильтр по категории (meetup, concert, exhibition, party, other)") @RequestParam(required = false) String category, @Parameter(description = "Минимальная цена") @RequestParam(name = "price_from", required = false) Integer priceFrom, @Parameter(description = "Максимальная цена (price_to=0 для бесплатных)") @RequestParam(name = "price_to", required = false) Integer priceTo, @Parameter(description = "Город проведения") @RequestParam(required = false) String city, @Parameter(description = "Дата начала не раньше (YYYYMMDD)", example = "20260314") @RequestParam(name = "date_from", required = false) String dateFrom, @Parameter(description = "Дата начала не позже (YYYYMMDD)", example = "20260314") @RequestParam(name = "date_to", required = false) String dateTo, @Parameter(description = "Никнейм организатора") @RequestParam(name = "user", required = false) String username, @Parameter(description = "Лимит пагинации", example = "10") @RequestParam(required = false) Integer limit, @Parameter(description = "Смещение пагинации", example = "0") @RequestParam(required = false) Integer offset, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {

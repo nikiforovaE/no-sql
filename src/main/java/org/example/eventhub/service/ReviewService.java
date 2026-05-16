@@ -36,7 +36,7 @@ public class ReviewService {
     private final AppConfig appConfig;
 
     private String getCacheKey(String title) {
-        String hash = DigestUtils.md5Hex(title.toLowerCase().trim());
+        String hash = DigestUtils.md5Hex(title);
         return "event:" + hash + ":reviews";
     }
 
@@ -68,32 +68,36 @@ public class ReviewService {
                         Query.query(Criteria.where("title").is(title)), Event.class)
                 .stream().map(Event::getId).toList();
 
-        ReviewStatsResponse stats = new ReviewStatsResponse(0, 0.0);
-
-        if (!eventIds.isEmpty()) {
-            String ids = String.join("','", eventIds);
-            String cql = "SELECT rating FROM event_reviews WHERE event_id IN ('" + ids + "')";
-
-            List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class);
-
-            if (!ratings.isEmpty()) {
-                int count = ratings.size();
-                double sum = ratings.stream().mapToDouble(Byte::doubleValue).sum();
-                double avg = sum / count;
-
-                double roundedAvg = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
-                stats = new ReviewStatsResponse(count, roundedAvg);
-            }
+        if (eventIds.isEmpty()) {
+            ReviewStatsResponse stats = new ReviewStatsResponse(0, 0.0);
+            saveToRedis(cacheKey, stats);
+            return stats;
         }
 
-        try {
-            redisTemplate.opsForValue().set(cacheKey,
-                    objectMapper.writeValueAsString(stats),
-                    Duration.ofSeconds(appConfig.getEventReviewsTtl()));
-        } catch (Exception ignored) {
+        String ids = String.join("','", eventIds);
+        String cql = "SELECT rating FROM event_reviews WHERE event_id IN ('" + ids + "')";
+        List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class);
+
+        int count = ratings.size();
+        double avg = 0.0;
+
+        if (count > 0) {
+            double sum = ratings.stream().mapToDouble(Byte::doubleValue).sum();
+            avg = sum / count;
+            avg = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
         }
 
+        ReviewStatsResponse stats = new ReviewStatsResponse(count, avg);
+        saveToRedis(cacheKey, stats);
         return stats;
+    }
+
+    private void saveToRedis(String key, ReviewStatsResponse stats) {
+        try {
+            String json = objectMapper.writeValueAsString(stats);
+            redisTemplate.opsForValue().set(key, json, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
+        } catch (Exception e) {
+        }
     }
 
     /**
