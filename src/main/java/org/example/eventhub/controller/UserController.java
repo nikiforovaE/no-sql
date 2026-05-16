@@ -234,8 +234,15 @@ public class UserController {
                 null, null, category, priceFrom, priceTo, city, dateFrom, dateTo, null, userId, null, null
         );
 
-        if ("reactions".equals(include)) {
-            events.forEach(eventService::applyReactions);
+        if (include != null && !include.isBlank()) {
+            List<String> includes = List.of(include.split(","));
+
+            if (includes.contains("reactions")) {
+                events.forEach(eventService::applyReactions);
+            }
+            if (includes.contains("reviews")) {
+                events.forEach(eventService::enrichWithReviews);
+            }
         }
 
         EventListResponse response = EventListResponse.builder()
