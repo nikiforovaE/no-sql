@@ -44,9 +44,10 @@ public class ReviewService {
      * Получение статистики отзывов
      */
     public ReviewStatsResponse getReviewStats(String title) {
-        if (title == null) return new ReviewStatsResponse(0, 0.0);
+        if (title == null || title.isBlank())
+            return new ReviewStatsResponse(0, 0.0);
 
-        String cacheKey = getCacheKey(title);
+        String cacheKey = "event:" + DigestUtils.md5Hex(title.toLowerCase().trim()) + ":reviews";
 
         String cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
@@ -56,7 +57,9 @@ public class ReviewService {
             }
         }
 
-        List<String> eventIds = mongoTemplate.find(Query.query(Criteria.where("title").is(title)), Event.class).stream().map(Event::getId).toList();
+        List<String> eventIds = mongoTemplate.find(
+                        Query.query(Criteria.where("title").is(title)), Event.class)
+                .stream().map(Event::getId).toList();
 
         ReviewStatsResponse stats = new ReviewStatsResponse(0, 0.0);
 
@@ -75,7 +78,9 @@ public class ReviewService {
                 stats = new ReviewStatsResponse(count, roundedAvg);
 
                 try {
-                    redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(stats), Duration.ofSeconds(appConfig.getLikeTtl()));
+                    redisTemplate.opsForValue().set(cacheKey,
+                            objectMapper.writeValueAsString(stats),
+                            Duration.ofSeconds(appConfig.getEventReviewsTtl()));
                 } catch (Exception ignored) {
                 }
             }

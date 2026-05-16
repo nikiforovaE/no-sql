@@ -355,11 +355,10 @@ public class EventController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getEvent(@Parameter(description = "ID мероприятия", example = "12e9c0b1a2b3c3d5e6f7a8b7") @PathVariable("id") String eventId, @RequestParam(required = false) String include, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         Event event = eventService.findEvent(eventId);
-        if (event == null) return buildErrorResponse(HttpStatus.NOT_FOUND, "Not found", sid);
+        if (event == null)
+            return buildErrorResponse(HttpStatus.NOT_FOUND, "Event not found", sid);
 
-        if ("reactions".equals(include)) {
-            eventService.applyReactions(event);
-        }
+        enrichEvent(event, include);
 
         return buildSuccessResponse(HttpStatus.OK, event, sid, false);
     }
@@ -397,7 +396,7 @@ public class EventController {
             )
     })
     @GetMapping
-    public ResponseEntity<?> listEvents(@RequestParam(required = false) String include, // Добавлено
+    public ResponseEntity<?> listEvents(@RequestParam(required = false) String include,
                                         @Parameter(description = "Поиск по точному ID") @RequestParam(required = false) String id, @Parameter(description = "Поиск по подстроке названия") @RequestParam(required = false) String title, @Parameter(description = "Фильтр по категории (meetup, concert, exhibition, party, other)") @RequestParam(required = false) String category, @Parameter(description = "Минимальная цена") @RequestParam(name = "price_from", required = false) Integer priceFrom, @Parameter(description = "Максимальная цена (price_to=0 для бесплатных)") @RequestParam(name = "price_to", required = false) Integer priceTo, @Parameter(description = "Город проведения") @RequestParam(required = false) String city, @Parameter(description = "Дата начала не раньше (YYYYMMDD)", example = "20260314") @RequestParam(name = "date_from", required = false) String dateFrom, @Parameter(description = "Дата начала не позже (YYYYMMDD)", example = "20260314") @RequestParam(name = "date_to", required = false) String dateTo, @Parameter(description = "Никнейм организатора") @RequestParam(name = "user", required = false) String username, @Parameter(description = "Лимит пагинации", example = "10") @RequestParam(required = false) Integer limit, @Parameter(description = "Смещение пагинации", example = "0") @RequestParam(required = false) Integer offset, @CookieValue(name = CookieProvider.SESSION_COOKIE_NAME, required = false) String sid) {
         if (limit != null && limit < 0)
             return buildErrorResponse(HttpStatus.BAD_REQUEST, "invalid \"limit\" parameter", sid);
@@ -416,11 +415,14 @@ public class EventController {
 
         List<Event> events = eventService.findEvents(id, title, category, priceFrom, priceTo, city, dateFrom, dateTo, username, null, limit, offset);
 
-        if ("reactions".equals(include)) {
-            events.forEach(eventService::applyReactions);
+        if (include != null && !include.isBlank()) {
+            events.forEach(e -> enrichEvent(e, include));
         }
 
-        EventListResponse responseBody = EventListResponse.builder().events(events).count(events.size()).build();
+        EventListResponse responseBody = EventListResponse.builder()
+                .events(events)
+                .count(events.size())
+                .build();
 
         return buildSuccessResponse(HttpStatus.OK, responseBody, sid, false);
     }
@@ -592,5 +594,21 @@ public class EventController {
         }
         if (message == null) return builder.build();
         return builder.body(Map.of("message", message));
+    }
+
+    /**
+     * Вспомогательный метод для обогащения мероприятия данными на основе параметра include
+     */
+    private void enrichEvent(Event event, String include) {
+        if (include == null || include.isBlank()) return;
+
+        List<String> includes = List.of(include.split(","));
+
+        if (includes.contains("reactions")) {
+            eventService.applyReactions(event);
+        }
+        if (includes.contains("reviews")) {
+            eventService.enrichWithReviews(event);
+        }
     }
 }
