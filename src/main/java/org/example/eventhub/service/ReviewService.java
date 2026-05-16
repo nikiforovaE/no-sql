@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -35,32 +35,35 @@ public class ReviewService {
     private final ObjectMapper objectMapper;
     private final AppConfig appConfig;
 
+    private static final DateTimeFormatter ISO_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX").withZone(ZoneOffset.UTC);
+
     private String getCacheKey(String title) {
         String hash = DigestUtils.md5Hex(title);
         return "event:" + hash + ":reviews";
     }
 
     /**
-     * Получение статистики отзывов
+     * Получение статистики отзывов (из кэша или с пересчетом)
      */
     public ReviewStatsResponse getReviewStats(String title) {
         if (title == null) return new ReviewStatsResponse(0, 0.0);
 
         String cacheKey = getCacheKey(title);
 
-        String cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null) {
-            try {
+        try {
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
                 return objectMapper.readValue(cached, ReviewStatsResponse.class);
-            } catch (Exception ignored) {
             }
+        } catch (Exception ignored) {
         }
 
         return recalculateAndCache(title);
     }
 
     /**
-     * Принудительный пересчет и запись в кэш
+     * Пересчет статистики отзывов по названию мероприятия и обновление Redis
      */
     private ReviewStatsResponse recalculateAndCache(String title) {
         String cacheKey = getCacheKey(title);
@@ -86,12 +89,7 @@ public class ReviewService {
             }
         }
 
-        try {
-            redisTemplate.opsForValue().set(cacheKey,
-                    objectMapper.writeValueAsString(stats),
-                    Duration.ofSeconds(appConfig.getEventReviewsTtl()));
-        } catch (Exception ignored) {
-        }
+        saveToRedis(cacheKey, stats);
 
         return stats;
     }
@@ -100,7 +98,7 @@ public class ReviewService {
         try {
             String json = objectMapper.writeValueAsString(stats);
             redisTemplate.opsForValue().set(key, json, Duration.ofSeconds(appConfig.getEventReviewsTtl()));
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -125,6 +123,9 @@ public class ReviewService {
         return reviewId.toString();
     }
 
+    /**
+     * Обновление существующего отзыва
+     */
     public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
         String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
         List<Map<String, Object>> results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
@@ -137,7 +138,7 @@ public class ReviewService {
             return false;
         }
 
-        byte finalRating = (rating != null) ? rating.byteValue() : (Byte) row.get("rating");
+        byte finalRating = (rating != null) ? rating.byteValue() : ((Number) row.get("rating")).byteValue();
         String finalComment = (comment != null) ? comment : (String) row.get("comment");
         Instant now = Instant.now();
 
@@ -149,27 +150,42 @@ public class ReviewService {
         return true;
     }
 
+    /**
+     * Получение списка отзывов с пагинацией
+     */
     public ReviewListResponse getReviews(String eventId, Integer limit, Integer offset) {
         String cql = "SELECT id, event_id, comment, created_by, rating, created_at, updated_at " +
                 "FROM event_reviews WHERE event_id = ?";
 
-        var rows = cqlTemplate.queryForList(cql, eventId);
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+        List<Map<String, Object>> rows = cqlTemplate.queryForList(cql, eventId);
+
+        if (rows == null || rows.isEmpty()) {
+            return ReviewListResponse.builder()
+                    .reviews(List.of())
+                    .count(0)
+                    .build();
+        }
 
         List<ReviewResponse> allReviews = rows.stream()
-                .map(row -> ReviewResponse.builder()
-                        .id(row.get("id").toString())
-                        .event_id((String) row.get("event_id"))
-                        .comment((String) row.get("comment"))
-                        .created_by((String) row.get("created_by"))
-                        .rating(((Byte) row.get("rating")).intValue())
-                        .created_at(((Instant) row.get("created_at")).atZone(ZoneId.of("UTC")).format(formatter))
-                        .updated_at(((Instant) row.get("updated_at")).atZone(ZoneId.of("UTC")).format(formatter))
-                        .build())
+                .map(row -> {
+                    Object rawId = row.get("id");
+                    Object rawCreatedAt = row.get("created_at");
+                    Object rawUpdatedAt = row.get("updated_at");
+
+                    return ReviewResponse.builder()
+                            .id(rawId != null ? rawId.toString() : "")
+                            .event_id((String) row.get("event_id"))
+                            .comment((String) row.get("comment"))
+                            .created_by((String) row.get("created_by"))
+                            .rating(row.get("rating") != null ? ((Number) row.get("rating")).intValue() : 0)
+                            .created_at(rawCreatedAt instanceof Instant ? ISO_FORMATTER.format((Instant) rawCreatedAt) : "")
+                            .updated_at(rawUpdatedAt instanceof Instant ? ISO_FORMATTER.format((Instant) rawUpdatedAt) : "")
+                            .build();
+                })
                 .toList();
 
-        int fromIndex = Math.min(offset, allReviews.size());
-        int toIndex = Math.min(fromIndex + limit, allReviews.size());
+        int fromIndex = Math.min(offset != null ? offset : 0, allReviews.size());
+        int toIndex = Math.min(fromIndex + (limit != null ? limit : allReviews.size()), allReviews.size());
 
         List<ReviewResponse> pagedReviews = allReviews.subList(fromIndex, toIndex);
 
