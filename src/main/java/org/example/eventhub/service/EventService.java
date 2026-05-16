@@ -27,11 +27,19 @@ public class EventService {
     private final ReviewService reviewService;
 
     public void enrichWithReviews(Event event) {
-        if (event == null || event.getTitle() == null || event.getId() == null)
+        if (event == null)
             return;
+
+        if (event.getTitle() == null || event.getId() == null) {
+            event.setReviews(new org.example.eventhub.dto.review.ReviewStatsResponse(0, 0.0));
+            return;
+        }
+
         var stats = reviewService.getReviewStats(event.getTitle(), event.getId());
         if (stats != null) {
             event.setReviews(stats);
+        } else {
+            event.setReviews(new org.example.eventhub.dto.review.ReviewStatsResponse(0, 0.0));
         }
     }
 

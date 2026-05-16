@@ -43,10 +43,11 @@ public class ReviewService {
      * Получение статистики отзывов (из кэша или с пересчетом)
      */
     public ReviewStatsResponse getReviewStats(String title, String eventId) {
-        if (title == null)
+        if (title == null) {
             return new ReviewStatsResponse(0, 0.0);
-        String cacheKey = getCacheKey(title);
+        }
 
+        String cacheKey = getCacheKey(title);
         try {
             Map<Object, Object> entries = redisTemplate.opsForHash().entries(cacheKey);
             if (entries != null && !entries.isEmpty()) {
@@ -57,15 +58,23 @@ public class ReviewService {
                 }
             }
         } catch (Exception ignored) {
+            return new ReviewStatsResponse(0, 0.0);
         }
-        return recalculateAndCache(title);
+
+        ReviewStatsResponse stats = recalculateAndCache(title);
+        return stats != null ? stats : new ReviewStatsResponse(0, 0.0);
     }
 
     /**
      * Пересчет статистики отзывов по названию мероприятия и обновление Redis
      */
     private ReviewStatsResponse recalculateAndCache(String title) {
+        if (title == null) {
+            return new ReviewStatsResponse(0, 0.0);
+        }
+
         String cacheKey = getCacheKey(title);
+
         List<String> eventIds = mongoTemplate.find(
                         Query.query(Criteria.where("title").is(title)), Event.class)
                 .stream().map(Event::getId).toList();
@@ -78,11 +87,13 @@ public class ReviewService {
 
             for (String id : eventIds) {
                 String cql = "SELECT rating FROM event_reviews WHERE event_id = ? ALLOW FILTERING";
-                List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, id);
-
-                if (!ratings.isEmpty()) {
-                    totalCount += ratings.size();
-                    totalSum += ratings.stream().mapToDouble(Byte::doubleValue).sum();
+                try {
+                    List<Byte> ratings = cqlTemplate.queryForList(cql, Byte.class, id);
+                    if (ratings != null && !ratings.isEmpty()) {
+                        totalCount += ratings.size();
+                        totalSum += ratings.stream().mapToDouble(Byte::doubleValue).sum();
+                    }
+                } catch (Exception ignored) {
                 }
             }
 
@@ -185,7 +196,6 @@ public class ReviewService {
                                 .atOffset(ZoneOffset.UTC)
                                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                     }
-
                     if (rawUpdatedAt instanceof Instant) {
                         updatedAtStr = ((Instant) rawUpdatedAt)
                                 .atOffset(ZoneOffset.UTC)
@@ -212,7 +222,6 @@ public class ReviewService {
 
         int fromIndex = Math.min(offset != null ? offset : 0, allReviews.size());
         int toIndex = Math.min(fromIndex + (limit != null ? limit : allReviews.size()), allReviews.size());
-
         List<ReviewResponse> pagedReviews = allReviews.subList(fromIndex, toIndex);
 
         return ReviewListResponse.builder()
