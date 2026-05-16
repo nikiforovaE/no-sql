@@ -100,8 +100,6 @@ public class ReviewService {
 
     private void saveToRedis(String key, ReviewStatsResponse stats) {
         try {
-            redisTemplate.delete(key);
-
             Map<String, String> hashModel = new HashMap<>();
             hashModel.put("count", String.valueOf(stats.getCount()));
             hashModel.put("rating", String.valueOf(stats.getRating()));
