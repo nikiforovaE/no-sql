@@ -202,12 +202,13 @@ public class EventController {
     @Operation(summary = "Отзыв на мероприятие", description = "Доступно только авторизованным пользователям. Одно мероприятие - один пользователь — один отзыв.")
     @ApiResponses(value = {
             @ApiResponse(
-                    responseCode = "204",
-                    description = "Успешное оставлен отзыв",
-                    headers = @Header(
-                            name = HttpHeaders.SET_COOKIE,
-                            description = "Обновляет TTL сессии",
-                            schema = @Schema(type = "string"))
+                    responseCode = "201",
+                    description = "Отзыв успешно создан",
+                    headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Обновляет TTL сессии"),
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"id\": \"56e2c0b3a2b4c1a5e6f7f8b3\"}")
+                    )
             ),
             @ApiResponse(
                     responseCode = "400",
@@ -228,7 +229,6 @@ public class EventController {
                     )
             )
     })
-
     @PostMapping("/{id}/reviews")
     public ResponseEntity<?> createReview(
             @PathVariable("id") String eventId,
@@ -266,6 +266,15 @@ public class EventController {
         return buildSuccessResponse(HttpStatus.CREATED, Map.of("id", reviewId), sid, true);
     }
 
+    @Operation(summary = "Список отзывов", description = "Возвращает отзывы для конкретного мероприятия с пагинацией.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Список получен",
+                    content = @Content(schema = @Schema(implementation = ReviewListResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Невалидные лимит или офсет")
+    })
     @GetMapping("/{id}/reviews")
     public ResponseEntity<?> listReviews(
             @PathVariable("id") String eventId,
@@ -290,7 +299,8 @@ public class EventController {
         return buildSuccessResponse(HttpStatus.OK, response, sid, false);
     }
 
-    @Operation(summary = "Изменить отзыв", description = "Доступно только владельцу отзыва. Изменяет рейтинг и комментарий.")
+    @Operation(summary = "Изменить отзыв",
+            description = "Позволяет редактировать рейтинг и комментарий. Доступно только владельцу отзыва.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Успешно обновлено"),
             @ApiResponse(responseCode = "404", description = "Отзыв или мероприятие не найдено")
@@ -348,7 +358,8 @@ public class EventController {
                     headers = @Header(
                             name = HttpHeaders.SET_COOKIE,
                             description = "Возвращает куку БЕЗ обновления TTL",
-                            schema = @Schema(type = "string"))
+                            schema = @Schema(type = "string")),
+                    content = @Content(schema = @Schema(implementation = Event.class))
             ),
             @ApiResponse(
                     responseCode = "404",
