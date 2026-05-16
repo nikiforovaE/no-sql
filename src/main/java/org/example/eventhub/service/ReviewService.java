@@ -1,6 +1,5 @@
 package org.example.eventhub.service;
 
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -23,6 +22,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -44,10 +44,10 @@ public class ReviewService {
      * Получение статистики отзывов
      */
     public ReviewStatsResponse getReviewStats(String title) {
-        if (title == null || title.isBlank())
+        if (title == null)
             return new ReviewStatsResponse(0, 0.0);
 
-        String cacheKey = "event:" + DigestUtils.md5Hex(title.toLowerCase().trim()) + ":reviews";
+        String cacheKey = getCacheKey(title);
 
         String cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
@@ -57,6 +57,14 @@ public class ReviewService {
             }
         }
 
+        return recalculateAndCache(title);
+    }
+
+    /**
+     * Принудительный пересчет и запись в кэш
+     */
+    private ReviewStatsResponse recalculateAndCache(String title) {
+        String cacheKey = getCacheKey(title);
         List<String> eventIds = mongoTemplate.find(
                         Query.query(Criteria.where("title").is(title)), Event.class)
                 .stream().map(Event::getId).toList();
@@ -76,14 +84,14 @@ public class ReviewService {
                 double roundedAvg = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
 
                 stats = new ReviewStatsResponse(count, roundedAvg);
-
-                try {
-                    redisTemplate.opsForValue().set(cacheKey,
-                            objectMapper.writeValueAsString(stats),
-                            Duration.ofSeconds(appConfig.getEventReviewsTtl()));
-                } catch (Exception ignored) {
-                }
             }
+        }
+
+        try {
+            redisTemplate.opsForValue().set(cacheKey,
+                    objectMapper.writeValueAsString(stats),
+                    Duration.ofSeconds(appConfig.getEventReviewsTtl()));
+        } catch (Exception ignored) {
         }
         return stats;
     }
@@ -104,7 +112,7 @@ public class ReviewService {
         String insertCql = "INSERT INTO event_reviews (id, event_id, created_by, rating, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
         cqlTemplate.execute(insertCql, reviewId, eventId, userId, (byte) rating, comment, now, now);
 
-        redisTemplate.delete(getCacheKey(title));
+        recalculateAndCache(title);
 
         return reviewId.toString();
     }
@@ -124,10 +132,8 @@ public class ReviewService {
                         .comment((String) row.get("comment"))
                         .created_by((String) row.get("created_by"))
                         .rating(((Byte) row.get("rating")).intValue())
-                        .created_at(((java.time.Instant) row.get("created_at"))
-                                .atZone(ZoneId.of("UTC")).format(formatter))
-                        .updated_at(((java.time.Instant) row.get("updated_at"))
-                                .atZone(ZoneId.of("UTC")).format(formatter))
+                        .created_at(((Instant) row.get("created_at")).atZone(ZoneId.of("UTC")).format(formatter))
+                        .updated_at(((Instant) row.get("updated_at")).atZone(ZoneId.of("UTC")).format(formatter))
                         .build())
                 .toList();
 
@@ -144,26 +150,25 @@ public class ReviewService {
 
     public boolean updateReview(String eventId, String reviewId, String userId, Integer rating, String comment, String title) {
         String selectCql = "SELECT event_id, created_by, rating, comment FROM event_reviews WHERE id = ? ALLOW FILTERING";
-        var results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
+        List<Map<String, Object>> results = cqlTemplate.queryForList(selectCql, UUID.fromString(reviewId));
 
-        if (results.isEmpty()) {
+        if (results.isEmpty())
             return false;
-        }
 
-        var row = results.get(0);
+        Map<String, Object> row = results.get(0);
 
         if (!row.get("event_id").equals(eventId) || !row.get("created_by").equals(userId)) {
             return false;
         }
 
-        byte finalRating = (rating != null) ? rating.byteValue() : (byte) row.get("rating");
+        byte finalRating = (rating != null) ? rating.byteValue() : (Byte) row.get("rating");
         String finalComment = (comment != null) ? comment : (String) row.get("comment");
-        java.time.Instant now = java.time.Instant.now();
+        Instant now = Instant.now();
 
         String updateCql = "UPDATE event_reviews SET rating = ?, comment = ?, updated_at = ? WHERE event_id = ? AND created_by = ?";
         cqlTemplate.execute(updateCql, finalRating, finalComment, now, eventId, userId);
 
-        redisTemplate.delete(getCacheKey(title));
+        recalculateAndCache(title);
 
         return true;
     }
