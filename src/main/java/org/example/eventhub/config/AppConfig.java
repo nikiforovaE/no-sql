@@ -47,4 +47,10 @@ public class AppConfig {
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
     }
+
+    private Long recommendationsTtl;
+
+    public Long getRecommendationsTtl() {
+        return recommendationsTtl;
+    }
 }
