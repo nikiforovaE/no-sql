@@ -1,5 +1,6 @@
 package org.example.eventhub.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,6 +49,7 @@ public class AppConfig {
         return new ObjectMapper();
     }
 
+    @Value("${app.recommendations.ttl:60}")
     private Long recommendationsTtl;
 
     public Long getRecommendationsTtl() {
