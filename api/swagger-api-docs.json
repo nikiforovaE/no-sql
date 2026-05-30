@@ -96,7 +96,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/UserListResponse"
                 }
               }
             }
@@ -105,6 +105,9 @@
             "description": "Невалидные параметры (limit/offset)",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "string"
+                },
                 "example": {
                   "message": "invalid \"limit\" field"
                 }
@@ -255,7 +258,7 @@
           "Events"
         ],
         "summary": "Поиск мероприятий",
-        "description": "Возвращает список мероприятий с фильтрацией по ID, названию, категории, цене, городу, датам и организатору.",
+        "description": "Возвращает список мероприятий с фильтрацией. В параметр include можно передать 'reactions,reviews' через запятую.",
         "operationId": "listEvents",
         "parameters": [
           {
@@ -387,7 +390,7 @@
             "description": "Результаты поиска",
             "headers": {
               "Set-Cookie": {
-                "description": "Возвращает куку БЕЗ обновления TTL",
+                "description": "Возвращает ту же куку, что была в запросе (без обновления TTL)",
                 "style": "simple",
                 "schema": {
                   "type": "string"
@@ -397,7 +400,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/EventListResponse"
                 }
               }
             }
@@ -497,6 +500,160 @@
               "application/json": {
                 "example": {
                   "message": "event already exists"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{id}/reviews": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Список отзывов",
+        "description": "Возвращает отзывы для конкретного мероприятия с пагинацией.",
+        "operationId": "listReviews",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список получен",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные лимит или офсет",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Отзыв на мероприятие",
+        "description": "Доступно только авторизованным пользователям. Одно мероприятие - один пользователь — один отзыв.",
+        "operationId": "createReview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Отзыв успешно создан",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Обновляет TTL сессии",
+                "style": "simple"
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "56e2c0b3a2b4c1a5e6f7f8b3"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные параметры",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "invalid \"category\" field"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не авторизован",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено или вы не организатор",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Not found. Be sure that event exists and you are the organizer"
                 }
               }
             }
@@ -813,7 +970,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Event"
                 }
               }
             }
@@ -927,6 +1084,74 @@
         }
       }
     },
+    "/events/{id}/reviews/{review_id}": {
+      "patch": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Изменить отзыв",
+        "description": "Позволяет редактировать рейтинг и комментарий. Доступно только владельцу отзыва.",
+        "operationId": "updateReview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Успешно обновлено",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Отзыв или мероприятие не найдено",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{id}": {
       "get": {
         "tags": [
@@ -961,7 +1186,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/UserInfo"
                 }
               }
             }
@@ -1054,6 +1279,16 @@
             }
           },
           {
+            "name": "include",
+            "in": "query",
+            "description": "Параметр include",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "reactions,reviews"
+          },
+          {
             "name": "X-Session-Id",
             "in": "cookie",
             "required": false,
@@ -1068,7 +1303,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/EventListResponse"
                 }
               }
             }
@@ -1196,6 +1431,31 @@
           "title"
         ]
       },
+      "ReviewCreateRequest": {
+        "type": "object",
+        "description": "Запрос на оставление отзыва на мероприятие",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "description": "Комментарий к отзыву (любые символы, максимум 300)",
+            "example": "Великолепный спектакль! Идите, даже не думайте!",
+            "maxLength": 300,
+            "minLength": 0
+          },
+          "rating": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Оценка от 1 до 5 (только целые числа)",
+            "example": 5,
+            "maximum": 5,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "comment",
+          "rating"
+        ]
+      },
       "LoginRequest": {
         "type": "object",
         "description": "Данные для входа в систему",
@@ -1244,6 +1504,268 @@
             "type": "string",
             "description": "Наименование города. При пустом значении - удаляет город из локации мероприятия.",
             "example": "Москва"
+          }
+        }
+      },
+      "ReviewPatchRequest": {
+        "type": "object",
+        "description": "Запрос на частичное изменение отзыва",
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Новая оценка от 1 до 5. Только если нужно изменить.",
+            "example": 3,
+            "maximum": 5,
+            "minimum": 1
+          },
+          "comment": {
+            "type": "string",
+            "description": "Новый комментарий (макс. 300 символов). Только если нужно изменить.",
+            "example": "На самом деле, так себе спектакль..."
+          }
+        }
+      },
+      "UserInfo": {
+        "type": "object",
+        "description": "Публичная информация о пользователе",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор пользователя (MongoDB ID)",
+            "example": "65e9c0b1a2b3c4d5e6f7a8b9"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Полное имя пользователя",
+            "example": "Иван Иванов"
+          },
+          "username": {
+            "type": "string",
+            "description": "Уникальное имя пользователя (логин)",
+            "example": "ivan_ivanov"
+          }
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "description": "Объект ответа со списком пользователей (организаторов)",
+        "properties": {
+          "users": {
+            "type": "array",
+            "description": "Список найденных пользователей",
+            "items": {
+              "$ref": "#/components/schemas/UserInfo"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Количество пользователей в списке",
+            "example": 1
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "description": "Полная модель мероприятия",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор события (hex)",
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название события",
+            "example": "Мой день рождения"
+          },
+          "description": {
+            "type": "string",
+            "description": "Подробное описание",
+            "example": "Приглашаю вас отпраздновать мое 30-с-чем-то-летие"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location",
+            "description": "Данные о месте проведения"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Дата создания записи (RFC3339)",
+            "example": "2026-03-14T14:59:32+03:00"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "ID создателя (User hex ID)",
+            "example": "65e9c0b1a2b3c4d5e6f7a8b9"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "Дата начала (RFC3339)",
+            "example": "2026-04-01T12:00:00+03:00"
+          },
+          "finishedAt": {
+            "type": "string",
+            "description": "Дата окончания (RFC3339)",
+            "example": "2026-04-01T23:00:00+03:00"
+          },
+          "category": {
+            "type": "string",
+            "description": "Категория",
+            "enum": [
+              "meetup",
+              "concert",
+              "exhibition",
+              "party",
+              "other"
+            ],
+            "example": "party"
+          },
+          "price": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Цена билета (0 для бесплатных)",
+            "example": 0
+          },
+          "reactions": {
+            "$ref": "#/components/schemas/ReactionResponse",
+            "description": "Объект со счетчиками реакций (лайков и дизлайков)"
+          },
+          "reviews": {
+            "$ref": "#/components/schemas/ReviewStatsResponse",
+            "description": "Статистика отзывов"
+          }
+        }
+      },
+      "EventListResponse": {
+        "type": "object",
+        "description": "Объект ответа со списком мероприятий",
+        "properties": {
+          "events": {
+            "type": "array",
+            "description": "Список найденных событий",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Количество найденных событий в списке",
+            "example": 1
+          }
+        }
+      },
+      "Location": {
+        "type": "object",
+        "description": "Географическое расположение события",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Полный адрес",
+            "example": "г. Москва, ул. Пушкина, дом Колотушкина"
+          },
+          "city": {
+            "type": "string",
+            "description": "Город",
+            "example": "Москва"
+          }
+        }
+      },
+      "ReactionResponse": {
+        "type": "object",
+        "description": "Счетчики реакций (лайков и дизлайков)",
+        "properties": {
+          "likes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Количество лайков",
+            "example": 24
+          },
+          "dislikes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Количество дизлайков",
+            "example": 3
+          }
+        }
+      },
+      "ReviewStatsResponse": {
+        "type": "object",
+        "description": "Усредненная информация об отзывах на мероприятие (данные из Redis)",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Общее количество всех отзывов на мероприятие (по его названию)",
+            "example": 123
+          },
+          "rating": {
+            "type": "number",
+            "format": "double",
+            "description": "Средний рейтинг всех отзывов, округлённый до одного знака после запятой",
+            "example": 4.8
+          }
+        }
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "description": "Ответ со списком отзывов и общим количеством отзывов",
+        "properties": {
+          "reviews": {
+            "type": "array",
+            "description": "Список найденных отзывов",
+            "items": {
+              "$ref": "#/components/schemas/ReviewResponse"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Общее количество найденных отзывов",
+            "example": 1
+          }
+        }
+      },
+      "ReviewResponse": {
+        "type": "object",
+        "description": "Данные конкретного отзыва",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID отзыва",
+            "example": "56e2c0b3a2b4c1a5e6f7f8b3"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "ID мероприятия в MongoDB",
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
+          },
+          "comment": {
+            "type": "string",
+            "description": "Комментарий пользователя",
+            "example": "Великолепный спектакль! Идите, даже не думайте!"
+          },
+          "rating": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Оценка от 1 до 5",
+            "example": 5
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Дата создания (RFC3339)",
+            "example": "2026-03-14T14:59:32+03:00"
+          },
+          "created_by": {
+            "type": "string",
+            "description": "ID автора отзыва",
+            "example": "65e9c0b1a2b3c4d5e6f7a8b9"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "Дата обновления (RFC3339)",
+            "example": "2026-03-14T14:59:32+03:00"
           }
         }
       }

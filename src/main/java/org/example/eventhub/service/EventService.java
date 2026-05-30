@@ -24,6 +24,24 @@ public class EventService {
     private final MongoTemplate mongoTemplate;
     private final UserService userService;
     private final ReactionService reactionService;
+    private final ReviewService reviewService;
+
+    public void enrichWithReviews(Event event) {
+        if (event == null)
+            return;
+
+        if (event.getTitle() == null || event.getId() == null) {
+            event.setReviews(new org.example.eventhub.dto.review.ReviewStatsResponse(0, 0.0));
+            return;
+        }
+
+        var stats = reviewService.getReviewStats(event.getTitle(), event.getId());
+        if (stats != null) {
+            event.setReviews(stats);
+        } else {
+            event.setReviews(new org.example.eventhub.dto.review.ReviewStatsResponse(0, 0.0));
+        }
+    }
 
     /**
      * Проверяет, занято ли указанное название события.
@@ -178,5 +196,57 @@ public class EventService {
      */
     private String formatSearchDate(String date) {
         return LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyyMMdd")).toString();
+    }
+
+    /**
+     * Подсчитывает общее количество найденных мероприятий по критериям без учета пагинации.
+     */
+    public long countEvents(
+            String id, String title, String category,
+            Integer priceFrom, Integer priceTo, String city,
+            String dateFrom, String dateTo, String username,
+            String creatorId
+    ) {
+        Query query = new Query();
+
+        if (id != null && !id.isBlank())
+            query.addCriteria(Criteria.where("_id").is(id));
+        if (title != null && !title.isBlank())
+            query.addCriteria(Criteria.where("title").regex(title, "i"));
+        if (category != null && !category.isBlank())
+            query.addCriteria(Criteria.where("category").is(category));
+        if (city != null && !city.isBlank())
+            query.addCriteria(Criteria.where("location.city").is(city));
+        if (creatorId != null && !creatorId.isBlank())
+            query.addCriteria(Criteria.where("created_by").is(creatorId));
+
+        if (priceFrom != null || priceTo != null) {
+            Criteria priceCriteria = Criteria.where("price");
+            if (priceFrom != null) priceCriteria.gte(priceFrom);
+            if (priceTo != null) priceCriteria.lte(priceTo);
+            query.addCriteria(priceCriteria);
+        }
+
+        if (dateFrom != null || dateTo != null) {
+            Criteria dateCriteria = Criteria.where("started_at");
+            if (dateFrom != null) {
+                dateCriteria.gte(formatSearchDate(dateFrom));
+            }
+            if (dateTo != null) {
+                dateCriteria.lte(formatSearchDate(dateTo) + "T23:59:59Z");
+            }
+            query.addCriteria(dateCriteria);
+        }
+
+        if (username != null && !username.isBlank()) {
+            var user = userService.findByUsername(username);
+            if (user.isPresent()) {
+                query.addCriteria(Criteria.where("created_by").is(user.get().getId()));
+            } else {
+                return 0L;
+            }
+        }
+
+        return mongoTemplate.count(query, Event.class);
     }
 }

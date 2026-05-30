@@ -26,6 +26,7 @@ public class AppConfig {
      */
     private Long likeTtl;
 
+    private Long eventReviewsTtl;
 
     /**
      * Создает и настраивает бин для шифрования паролей.
