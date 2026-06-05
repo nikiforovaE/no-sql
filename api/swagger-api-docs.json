@@ -24,6 +24,10 @@
       "description": "Управление событиями и мероприятиями"
     },
     {
+      "name": "Events",
+      "description": "Управление событиями и рекомендациями"
+    },
+    {
       "name": "Health",
       "description": "Проверка доступности сервиса"
     },
@@ -1324,22 +1328,36 @@
     "/recommendations": {
       "get": {
         "tags": [
-          "recommendation-controller"
+          "Events"
         ],
+        "summary": "Рекомендации мероприятий",
+        "description": "Возвращает персональный список рекомендованных мероприятий на основе лайков. Результат кэшируется в Redis.",
         "operationId": "getRecommendations",
         "parameters": [
           {
             "name": "X-Session-Id",
             "in": "cookie",
+            "description": "ID сессии из Cookie",
             "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "3f8a2c1d9e4b7f0a5c6d2e8b1a3f9c7d"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Успешное получение рекомендаций",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Пользователь не авторизован",
             "content": {
               "*/*": {
                 "schema": {
@@ -1735,6 +1753,19 @@
             "format": "double",
             "description": "Средний рейтинг всех отзывов, округлённый до одного знака после запятой",
             "example": 4.8
+          }
+        }
+      },
+      "RecommendationResponse": {
+        "type": "object",
+        "description": "Объект ответа со списком рекомендованных мероприятий",
+        "properties": {
+          "events": {
+            "type": "array",
+            "description": "Список рекомендованных событий",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
           }
         }
       },
