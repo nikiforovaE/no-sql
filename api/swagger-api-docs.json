@@ -1321,6 +1321,36 @@
         }
       }
     },
+    "/recommendations": {
+      "get": {
+        "tags": [
+          "recommendation-controller"
+        ],
+        "operationId": "getRecommendations",
+        "parameters": [
+          {
+            "name": "X-Session-Id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -1736,11 +1766,6 @@
             "description": "ID отзыва",
             "example": "56e2c0b3a2b4c1a5e6f7f8b3"
           },
-          "event_id": {
-            "type": "string",
-            "description": "ID мероприятия в MongoDB",
-            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
-          },
           "comment": {
             "type": "string",
             "description": "Комментарий пользователя",
@@ -1751,6 +1776,11 @@
             "format": "int32",
             "description": "Оценка от 1 до 5",
             "example": 5
+          },
+          "event_id": {
+            "type": "string",
+            "description": "ID мероприятия в MongoDB",
+            "example": "12e9c0b1a2b3c3d5e6f7a8b7"
           },
           "created_at": {
             "type": "string",
@@ -1765,7 +1795,7 @@
           "updated_at": {
             "type": "string",
             "description": "Дата обновления (RFC3339)",
-            "example": "2026-03-14T14:59:32+03:00"
+            "example": "2026-03-14T14:59:32Z"
           }
         }
       }
