@@ -25,6 +25,7 @@ public class EventService {
     private final UserService userService;
     private final ReactionService reactionService;
     private final ReviewService reviewService;
+    private final Neo4jSyncService neo4jSyncService;
 
     public void enrichWithReviews(Event event) {
         if (event == null)
@@ -61,7 +62,10 @@ public class EventService {
      */
     public Event saveEvent(Event event) {
         event.setCreatedAt(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-        return eventRepository.save(event);
+
+        Event savedEvent = eventRepository.save(event);
+        neo4jSyncService.syncEvent(savedEvent.getId(), savedEvent.getTitle());
+        return savedEvent;
     }
 
     /**
@@ -162,6 +166,7 @@ public class EventService {
         Event event = findEvent(eventId);
         if (event != null) {
             reactionService.saveReaction(eventId, userId, 1, event.getTitle());
+            neo4jSyncService.syncLike(userId, eventId);
         }
     }
 

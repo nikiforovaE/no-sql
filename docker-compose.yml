@@ -18,6 +18,8 @@ services:
         condition: service_healthy
       cassandra-setup:
         condition: service_completed_successfully
+      neo4j:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -122,6 +124,19 @@ services:
       - ./docker/setup.sh:/setup.sh
     entrypoint: [ "/bin/bash", "/setup.sh" ]
 
+  neo4j:
+    image: neo4j:5
+    container_name: ${NEO4J_HOST}
+    environment:
+      - NEO4J_AUTH=${NEO4J_USERNAME}/${NEO4J_PASSWORD}
+    ports:
+      - ${NEO4J_HTTP_PORT}:7474
+      - ${NEO4J_BOLT_PORT}:7687
+    healthcheck:
+      test: [ "CMD", "cypher-shell", "-u", "${NEO4J_USERNAME}", "-p", "${NEO4J_PASSWORD}", "RETURN 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   config_data:

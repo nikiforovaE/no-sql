@@ -20,6 +20,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
+    private final Neo4jSyncService neo4jSyncService;
 
     /**
      * Проверяет, зарегистрирован ли пользователь с таким логином.
@@ -45,7 +46,11 @@ public class UserService {
                 .username(username)
                 .passwordHash(passwordEncoder.encode(password))
                 .build();
-        return userRepository.save(user);
+
+        User savedUser = userRepository.save(user);
+        neo4jSyncService.syncUser(savedUser.getId());
+
+        return savedUser;
     }
 
     /**

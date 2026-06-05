@@ -133,10 +133,7 @@ public class UserController {
             @ApiResponse(
                     responseCode = "200",
                     description = "Успешный поиск",
-                    content = @Content(
-                            schema = @Schema(implementation = UserListResponse.class)
-                    )
-            ),
+                    content = @Content(schema = @Schema(implementation = UserListResponse.class))),
             @ApiResponse(
                     responseCode = "400",
                     description = "Невалидные параметры (limit/offset)",
